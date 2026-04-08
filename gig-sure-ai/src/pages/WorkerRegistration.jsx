@@ -114,9 +114,20 @@ export default function WorkerRegistration() {
     
     setIsSubmitting(true)
     setSubmitError('')
+
+    // Re-verify session before submitting KYC
+    let currentEmail = email
+    try {
+      const profileRes = await api.get('/auth/profile')
+      if (profileRes.data?.email) currentEmail = profileRes.data.email
+    } catch (authErr) {
+      // If we can't reach profile, still try to submit (endpoint is now public)
+      console.warn('Pre-submit profile check failed, continuing anyway')
+    }
+
     try {
       await api.post('/api/v1/workers', {
-        email: email,
+        email: currentEmail,
         ...formData,
         panNumber: formData.panNumber.toUpperCase(),
         avgIncome: parseFloat(formData.avgIncome) || 0
@@ -129,7 +140,6 @@ export default function WorkerRegistration() {
       console.error('Submission error', err)
       const msg = err.response?.data?.message || err.response?.data || err.message
       if (err.response?.status === 400) {
-        // Highlight which field caused the backend error
         const msgStr = String(msg).toLowerCase()
         if (msgStr.includes('bank account') || msgStr.includes('account number')) {
           setErrors(prev => ({ ...prev, bankAccountNumber: 'Invalid bank account number. Please check and retry.' }))
@@ -147,11 +157,14 @@ export default function WorkerRegistration() {
           setSubmitError(String(msg))
         }
       } else if (err.response?.status === 409) {
-        setSubmitError('A worker profile already exists for this account.')
+        // Worker profile already exists — KYC was already done, redirect to dashboard
+        localStorage.setItem('gigshield_kyc_done', 'true')
+        setSubmitSuccess(true)
+        setTimeout(() => navigate('/worker'), 1500)
       } else if (err.response?.status === 401) {
-        setSubmitError('Session expired. Please log in again and retry.')
+        setSubmitError('Authentication issue. Please log out, log back in, and try again.')
       } else {
-        setSubmitError('Submission failed. Please try again. ' + String(msg))
+        setSubmitError('Submission failed. Please check your details and try again.')
       }
     } finally {
       setIsSubmitting(false)

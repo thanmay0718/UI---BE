@@ -50,7 +50,12 @@ public class SecurityConfig {
                         // Public APIs
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/error").permitAll() // ✅ Prevent mask
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/policy-templates").permitAll()
+
+                        // ✅ Worker onboarding & fetching
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/workers").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/workers").permitAll()
 
                         // Role-based APIs
                         .requestMatchers("/admin/**").hasRole("ADMIN")

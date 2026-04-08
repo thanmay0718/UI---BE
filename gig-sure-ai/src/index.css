@@ -1,3 +1,5 @@
+/* Arial-first typography — no external font dependency needed */
+/* Manrope used only as fallback for displays that support it */
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 *, *::before, *::after {
@@ -53,9 +55,9 @@
   --inverse-surface: #e5e2e1;
   --inverse-on-surface: #313030;
 
-  /* Typography */
-  --font-display: 'Manrope', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  /* Typography — Arial first for professional look */
+  --font-display: 'Arial', 'Helvetica Neue', 'Manrope', sans-serif;
+  --font-body:    'Arial', 'Helvetica Neue', 'Inter', sans-serif;
 
   /* Spacing */
   --space-1: 0.25rem;
@@ -116,10 +118,39 @@ body {
   background-clip: text;
 }
 
+/* Apple-grade glass utility — dark variant */
 .glass {
-  background: rgba(53, 53, 52, 0.6);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(28, 28, 30, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Section / page heading with gradient underline accent */
+.page-heading {
+  font-family: 'Arial', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(229, 226, 225, 0.95);
+  letter-spacing: -0.02em;
+  position: relative;
+  display: inline-block;
+  padding-bottom: 6px;
+}
+
+.page-heading::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 36px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--primary-container), var(--primary));
 }
 
 .btn-primary {
