@@ -17,4 +17,6 @@ public interface WorkerService {
     void deleteWorker(Long id);
 
     WorkerResponseDTO updateWorker(Long id, WorkerRequestDTO request);
+
+    com.example.Gig.Worker.Insurance.DTO.WorkingAreaResponse updateWorkingArea(Long workerId, com.example.Gig.Worker.Insurance.DTO.WorkingAreaRequest request);
 }

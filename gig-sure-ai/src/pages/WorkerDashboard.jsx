@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import { Icon } from '../components/Icons'
 import api from '../services/api'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
 import './WorkerDashboard.css'
 
 const PAYOUT_METHODS = [
@@ -18,20 +19,36 @@ const statusColor = (s) => ({ completed: 'badge-active', processing: 'badge-info
 
 function DashboardView() {
   const [loading, setLoading] = useState(true)
-  const [realStats, setRealStats] = useState({ payments: [], riskFeed: [] })
+  const [realStats, setRealStats] = useState({ payments: [], claims: [], weatherRisk: null, aqiRisk: null, newsRisk: null, riskHistory: [] })
 
   useEffect(() => {
     async function loadDash() {
       try {
         const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
         if (pRes.data && pRes.data.id) {
-           const [payRes, claimsRes] = await Promise.all([
-             api.get(`/api/v1/payments/worker/${pRes.data.id}`),
-             api.get('/api/v1/claims')
+           const profileData = JSON.parse(localStorage.getItem('gigshield_profile')) || {};
+           const workerRes = await api.get(`/api/v1/workers`).catch(()=>({data:[]}))
+           const myWorker = Array.isArray(workerRes.data) ? workerRes.data.find(w => w.userId === pRes.data.id || w.email === pRes.data.email) : null;
+           const targetWorkerId = pRes.data.id;
+           
+           const cityTarget = myWorker?.workingCity || profileData.workingCity || 'New York';
+           
+           const [payRes, claimsRes, weatherRes, aqiRes, histRes, newsRes] = await Promise.all([
+             api.get(`/api/v1/payments/worker/${targetWorkerId}`).catch(()=>({data:[]})),
+             api.get('/api/v1/claims').catch(()=>({data:[]})),
+             api.get(`/api/v1/risk/weather?city=${encodeURIComponent(cityTarget)}`).catch(()=>({data:null})),
+             api.get(`/api/v1/risk/aqi?city=${encodeURIComponent(cityTarget)}`).catch(()=>({data:null})),
+             api.get(`/api/v1/risk/history?workerId=${targetWorkerId}`).catch(()=>({data:[]})),
+             api.get(`/api/v1/risk/news?city=${encodeURIComponent(cityTarget)}`).catch(()=>({data:null}))
            ])
            setRealStats({ 
+             myWorker,
              payments: payRes.data, 
-             claims: claimsRes.data.filter(c => c.workerId === pRes.data.id) 
+             claims: claimsRes.data.filter(c => c.workerId === targetWorkerId),
+             weatherRisk: weatherRes.data,
+             aqiRisk: aqiRes.data,
+             newsRisk: newsRes.data,
+             riskHistory: histRes.data
            })
         }
       } catch (err) {
@@ -43,69 +60,105 @@ function DashboardView() {
     loadDash()
   }, [])
 
-  const CHART_BARS = [40, 75, 55, 90, 45, 80, 60, 95, 50, 70, 85, 65]
   const recentPayments = realStats.payments?.slice(0, 3) || []
+  const weatherRiskRaw = realStats.weatherRisk?.riskMultiplier || 1.0;
+  const weatherScore = Math.min(100, Math.round(realStats.weatherRisk?.weatherScore || 0));
+  const aqiScore = realStats.aqiRisk?.aqiScore || 0;
+
+  const historyData = realStats.riskHistory.length > 0 ? realStats.riskHistory.slice(-12).map(h => ({
+     name: new Date(h.recordedAt).toLocaleDateString(undefined, {month: 'short', day: 'numeric'}),
+     score: Math.round((h.overallScore || h.weatherScore || 0))
+  })) : [];
+
+
+  const COLORS = ['#FF7A00', '#2E2D2B', '#E5E2E1'];
+  
+  const radarData = [
+    { subject: 'Precipitation', A: Math.min(100, (realStats.weatherRisk?.triggerValue || 0) * 5), fullMark: 100 },
+    { subject: 'Air Quality (AQI)', A: aqiScore, fullMark: 100 },
+    { subject: 'Traffic Delay', A: (weatherRiskRaw > 1.2 ? 80 : 35), fullMark: 100 },
+    { subject: 'Payout Likelihood', A: (weatherScore * 0.7 + aqiScore * 0.3), fullMark: 100 },
+    { subject: 'Zone Hazard', A: Math.min(100, Math.max(weatherScore, aqiScore) * 1.2), fullMark: 100 },
+  ];
+
+
+  const profileData = JSON.parse(localStorage.getItem('gigshield_profile')) || {};
+  const city = realStats.myWorker?.workingCity || profileData.workingCity || 'New York';
+  const area = realStats.myWorker?.workingZone || profileData.workingZone || 'Downtown';
 
   return (
     <div className="section-content">
-      <div className="worker-metrics">
-        <div className="metric-card card">
+      <div className="dashboard-title-row">
+         <div className="dashboard-title-text">
+            <p className="section-eyebrow">Risk Analytics</p>
+            <h1>{city}, <span style={{color: 'var(--primary)'}}>{area}</span></h1>
+         </div>
+         <div className="dashboard-location-badge">
+            <Icon name="location_on" size={18} /> Live Sentinel Active
+         </div>
+      </div>
+
+      {/* Real-time AI Risk Intelligence Overview */}
+      <div className="pie-chart-container" style={{position: 'relative'}}>
+         <div style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.15, pointerEvents: 'none'}}>
+            {weatherRiskRaw > 1.2 && <div className="anim-rain-container">
+               <div className="anim-drop" style={{left: '10%'}}></div><div className="anim-drop" style={{left: '30%', animationDelay: '0.2s'}}></div>
+               <div className="anim-drop" style={{left: '70%', animationDelay: '0.1s'}}></div><div className="anim-drop" style={{left: '90%', animationDelay: '0.5s'}}></div>
+            </div>}
+         </div>
+         <div style={{ width: '100%', height: '350px', background: 'radial-gradient(circle, rgba(255,122,0,0.05) 0%, transparent 70%)', borderRadius: '16px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                <PolarGrid stroke="var(--outline)" strokeDasharray="3 3" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--on-surface-variant)', fontSize: 13, fontWeight: 600 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                <Radar name="Risk Analysis" dataKey="A" stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.4} />
+                <RechartsTooltip contentStyle={{background: 'var(--surface-container-high)', border: '1px solid var(--primary)', borderRadius: '8px', color: 'var(--on-surface)'}} />
+              </RadarChart>
+            </ResponsiveContainer>
+         </div>
+      </div>
+      
+      <div className="worker-metrics" style={{marginTop: '1rem'}}>
+        <div className="metric-card card apple-glass" style={{ border: '1px solid rgba(255, 122, 0, 0.2)' }}>
           <div className="metric-card-header">
-            <span className="metric-icon-wrap"><Icon name="rain" size={22} color="var(--secondary)" /></span>
-            <span className="badge badge-active">Active</span>
+            <span className="metric-icon-wrap"><Icon name="cloud" size={22} color="var(--primary)" /></span>
+            <span className="badge badge-warning">AI Model Active</span>
           </div>
-          <h3 className="metric-card-title">Rainfall Protection</h3>
-          <p className="metric-card-desc">Automated coverage for intense precipitation affecting your delivery slots.</p>
+          <h3 className="metric-card-title">Real-Time Weather Risk</h3>
+          <p className="metric-card-desc">Live parametric tracking powered by GigShield AI Core.</p>
           <div className="metric-grid">
-            <div className="metric-item"><span className="metric-label">Coverage Limit</span><span className="metric-value">₹250.00</span></div>
-            <div className="metric-item"><span className="metric-label">Protected Earnings</span><span className="metric-value gradient-text">₹1,200.00</span></div>
-            <div className="metric-item"><span className="metric-label">Weekly Premium</span><span className="metric-value">₹12.50</span></div>
-            <div className="metric-item"><span className="metric-label">Recent Claims</span><span className="metric-value">{realStats.claims ? realStats.claims.length : 0}</span></div>
-          </div>
-          <div style={{marginTop: '1rem', padding: '0.75rem 1rem', background: 'rgba(255, 162, 80, 0.1)', border: '1px solid var(--tertiary)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
-            <Icon name="zap" size={18} color="var(--tertiary)" />
-            <div>
-               <p style={{fontSize: '0.85rem', fontWeight: 600, color: 'var(--on-surface)'}}>Premium Payment Due</p>
-               <p style={{fontSize: '0.75rem', color: 'var(--on-surface-variant)'}}>Your next premium of ₹12.50 will be auto-deducted this week.</p>
-            </div>
+            <div className="metric-item"><span className="metric-label">Precipitation</span><span className="metric-value">{(realStats.weatherRisk?.triggerValue || 0).toFixed(1)} mm</span></div>
+            <div className="metric-item"><span className="metric-label">Risk Mult</span><span className="metric-value gradient-text">{(realStats.weatherRisk?.riskMultiplier || 1.0).toFixed(2)}x</span></div>
+            <div className="metric-item"><span className="metric-label">Threshold</span><span className="metric-value">{realStats.weatherRisk?.threshold || 10} mm</span></div>
+            <div className="metric-item"><span className="metric-label">Condition</span><span className="metric-value">{realStats.weatherRisk?.condition || '—'}</span></div>
           </div>
         </div>
+
         <div className="stat-cards-col">
-          <div className="stat-mini card"><span className="stat-mini-label">Risk Reduction</span><span className="stat-mini-value" style={{ color: 'var(--tertiary)' }}>18%</span><span className="stat-mini-sub">↓ vs last month</span></div>
-          <div className="stat-mini card"><span className="stat-mini-label">Next Payout Potential</span><span className="stat-mini-value gradient-text">₹84.50</span><span className="stat-mini-sub">Weather trigger active</span></div>
-          <div className="stat-mini card"><span className="stat-mini-label">Active Policies</span><span className="stat-mini-value">3</span><span className="stat-mini-sub">Rainfall, AQI, Outage</span></div>
+          <div className="stat-mini card">
+             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+               <div>
+                  <span className="stat-mini-label">Air Quality Risk (AQI)</span>
+                  <span className="stat-mini-value" style={{ color: aqiScore > 70 ? 'var(--error)' : 'var(--tertiary)' }}>{aqiScore}</span>
+               </div>
+               <span style={{opacity: 0.2}}><Icon name="cloud" size={32} /></span>
+             </div>
+             <span className="stat-mini-sub">{aqiScore > 70 ? 'Hazardous Conditions Detected' : 'Normal Conditions'}</span>
+          </div>
+          <div className="stat-mini card">
+             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+               <div>
+                 <span className="stat-mini-label">Next Payout Potential</span>
+                 <span className="stat-mini-value gradient-text">₹{(weatherRiskRaw > 1.0 ? 250 : 0).toFixed(2)}</span>
+               </div>
+               <span style={{opacity: 0.2}}><Icon name="payments" size={32} /></span>
+             </div>
+             <span className="stat-mini-sub">{weatherRiskRaw > 1.2 ? 'Trigger conditions heavily met' : `${realStats.weatherRisk?.condition || 'Clear'} — conditions not met`}</span>
+          </div>
         </div>
       </div>
-      <div className="worker-bottom">
-        <div className="chart-card card">
-          <div className="chart-header">
-            <h3>Risk Analytics Trend</h3>
-            <span className="badge badge-info">Last 12 Weeks</span>
-          </div>
-          <div className="bar-chart">
-            {CHART_BARS.map((h, i) => (
-              <div key={i} className="bar-col">
-                <div className="bar" style={{ height: `${h}%` }} title={`Week ${i + 1}: ${h}%`} />
-              </div>
-            ))}
-          </div>
-          <div className="chart-legend">
-            <span className="legend-dot" style={{ background: 'var(--secondary)' }} />
-            <span>Risk Score</span>
-          </div>
-        </div>
-        <div className="risk-feed card">
-          <h3 className="feed-title">Risk Feed</h3>
-          {[{icon:'rain',title:'Heavy Rain',desc:'No immediate risks locally',time:'Live'}].map(f => (
-            <div key={f.title} className="feed-item">
-              <span className="feed-icon-wrap"><Icon name={f.icon} size={18} color="var(--primary)" /></span>
-              <div className="feed-content"><p className="feed-name">{f.title}</p><p className="feed-desc">{f.desc}</p></div>
-              <span className="feed-time">{f.time}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="activity-card card">
+      <div className="activity-card card" style={{marginTop: '1rem'}}>
         <h3>Recent Activity</h3>
         <div className="activity-list">
           {loading ? <p style={{color:'var(--on-surface-variant)'}}>Loading activity...</p> : 
@@ -124,6 +177,214 @@ function DashboardView() {
           ))}
         </div>
       </div>
+
+      <div className="card" style={{marginTop: '1rem', padding: '1.5rem'}}>
+         <h3 style={{marginBottom: '1rem'}}>Active Risks in {city} <span className="badge badge-error">LIVE</span></h3>
+         <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+            {realStats.newsRisk?.articles && realStats.newsRisk.articles.slice(0, 3).map((article, i) => (
+              <div key={i} style={{padding: '0.75rem', border: '1px solid rgba(255,122,0,0.2)', borderRadius: '8px', background: 'var(--surface-container-high)'}}>
+                <h4 style={{fontSize: '0.9rem', marginBottom: '0.25rem', color: 'var(--on-surface)'}}>{article.title}</h4>
+                <p style={{fontSize: '0.8rem', color: 'var(--on-surface-variant)', margin: 0}}>{article.description}</p>
+                <div style={{fontSize: '0.7rem', color: 'var(--primary)', marginTop: '0.5rem'}}>{new Date(article.publishedAt).toLocaleString()}</div>
+              </div>
+            ))}
+            {(!realStats.newsRisk || !realStats.newsRisk.articles || realStats.newsRisk.articles.length === 0) && (
+              <p style={{color: 'var(--on-surface-variant)', fontSize: '0.875rem'}}>No major disruptions or social risks reported in your area currently.</p>
+            )}
+         </div>
+      </div>
+    </div>
+  )
+}
+
+function RiskHistoryView() {
+  const [loading, setLoading] = useState(true)
+  const [historyData, setHistoryData] = useState([])
+  const [searchDate, setSearchDate] = useState('')
+  const [filterFrom, setFilterFrom] = useState('')
+  const [filterTo, setFilterTo] = useState('')
+  const [filterStatus, setFilterStatus] = useState('ALL') // ALL | Safe | Monitor | Payout
+
+  useEffect(() => {
+    async function fetchHistory() {
+      try {
+        const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
+        if (pRes.data && pRes.data.id) {
+           const wRes = await api.get('/api/v1/workers').catch(() => ({ data: [] }))
+           const myWorker = wRes.data.find(w => w.email === pRes.data.email)
+           const targetWorkerId = pRes.data.id;
+           const histRes = await api.get(`/api/v1/risk/history?workerId=${targetWorkerId}&range=ALL`).catch(()=>({data:[]}))
+           const data = Array.isArray(histRes.data) ? histRes.data : []
+           const mapped = data.map(h => ({
+             name: new Date(h.recordedAt).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'}),
+             score: Math.round(h.overallScore || h.weatherScore || 0),
+             rawDate: h.recordedAt,
+             weatherScore: Math.round(h.weatherScore || 0),
+             aqiScore: Math.round(h.aqiScore || 0)
+           }))
+           setHistoryData(mapped)
+        }
+      } catch (err) {
+        console.error('History fetch error:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchHistory()
+  }, [])
+
+  // Apply filters
+  const filteredData = historyData.filter(d => {
+    // Text search
+    if (searchDate && !d.name.toLowerCase().includes(searchDate.toLowerCase())) return false
+    // Date range from
+    if (filterFrom && new Date(d.rawDate) < new Date(filterFrom)) return false
+    // Date range to
+    if (filterTo && new Date(d.rawDate) > new Date(filterTo + 'T23:59:59')) return false
+    // Status filter
+    if (filterStatus === 'Safe' && d.score >= 50) return false
+    if (filterStatus === 'Monitor' && (d.score < 50 || d.score >= 80)) return false
+    if (filterStatus === 'Payout' && d.score < 80) return false
+    return true
+  })
+
+  const clearFilters = () => {
+    setSearchDate('')
+    setFilterFrom('')
+    setFilterTo('')
+    setFilterStatus('ALL')
+  }
+
+  const hasActiveFilters = searchDate || filterFrom || filterTo || filterStatus !== 'ALL'
+
+  return (
+    <div className="section-content">
+      <div className="section-top-row">
+        <div><h2 className="section-h2">Risk History Analysis</h2><p className="section-sub">Historical breakdown of real-time AI risk assessments since your registration.</p></div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div className="card" style={{padding: '1.25rem', marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'flex-end'}}>
+        {/* Calendar text search */}
+        <div style={{flex: 1, minWidth: '180px'}}>
+          <label style={{fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.4rem'}}>Search Date</label>
+          <div style={{position: 'relative', display: 'flex', alignItems: 'center'}}>
+            <Icon name="search" size={14} color="var(--on-surface-variant)" style={{position: 'absolute', left: '0.75rem'}} />
+            <input
+              className="form-input"
+              placeholder="e.g. Mar 12"
+              value={searchDate}
+              onChange={e => setSearchDate(e.target.value)}
+              style={{paddingLeft: '2.25rem'}}
+            />
+          </div>
+        </div>
+
+        {/* From Calendar */}
+        <div style={{minWidth: '160px'}}>
+          <label style={{fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.4rem'}}>From</label>
+          <input
+            type="date"
+            className="form-input"
+            value={filterFrom}
+            onChange={e => setFilterFrom(e.target.value)}
+            style={{colorScheme: 'dark'}}
+          />
+        </div>
+
+        {/* To Calendar */}
+        <div style={{minWidth: '160px'}}>
+          <label style={{fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.4rem'}}>To</label>
+          <input
+            type="date"
+            className="form-input"
+            value={filterTo}
+            onChange={e => setFilterTo(e.target.value)}
+            style={{colorScheme: 'dark'}}
+          />
+        </div>
+
+        {/* Status Filter */}
+        <div style={{minWidth: '140px'}}>
+          <label style={{fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.4rem'}}>Status</label>
+          <select className="form-input" value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{colorScheme: 'dark'}}>
+            <option value="ALL">All Statuses</option>
+            <option value="Safe">Safe (0–49)</option>
+            <option value="Monitor">Monitor (50–79)</option>
+            <option value="Payout">Payout Eligible (80+)</option>
+          </select>
+        </div>
+
+        {hasActiveFilters && (
+          <button className="btn-secondary btn-sm btn-with-icon" onClick={clearFilters} style={{alignSelf: 'flex-end', height: '40px'}}>
+            <Icon name="close" size={13} /> Clear Filters
+          </button>
+        )}
+
+        <div style={{alignSelf: 'flex-end', marginLeft: 'auto'}}>
+          <span className="badge badge-info" style={{padding: '0.5rem 0.75rem'}}>
+            {filteredData.length} record{filteredData.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </div>
+      
+      <div className="card" style={{padding: '1.5rem', marginBottom: '1.5rem'}}>
+          <div className="chart-header">
+            <h3>Parametric Risk Timeline</h3>
+            <span style={{fontSize:'0.8rem', color:'var(--on-surface-variant)'}}>{filteredData.length} data points</span>
+          </div>
+          {filteredData.length === 0 && !loading ? (
+            <div style={{textAlign:'center', padding:'3rem', color:'var(--on-surface-variant)'}}>
+              <Icon name="history" size={40} color="rgba(255,122,0,0.3)" />
+              <p style={{marginTop:'1rem'}}>No risk data yet. Data is captured daily once your Working Area is configured.</p>
+            </div>
+          ) : (
+          <div style={{ height: '300px', width: '100%', marginTop: '1.5rem' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={filteredData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <XAxis dataKey="name" tick={{fill: 'var(--on-surface-variant)', fontSize: 12}} axisLine={false} tickLine={false} />
+                <YAxis tick={{fill: 'var(--on-surface-variant)', fontSize: 12}} axisLine={false} tickLine={false} />
+                <RechartsTooltip 
+                  cursor={{fill: 'rgba(255, 122, 0, 0.1)'}} 
+                  contentStyle={{background: 'var(--surface-container-high)', border: '1px solid var(--primary)', borderRadius: '8px', color: 'var(--on-surface)'}} 
+                />
+                <Bar dataKey="score" fill="var(--primary)" radius={[4, 4, 0, 0]}>
+                  {filteredData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.score > 80 ? 'var(--error)' : 'url(#colorGradient)'} />
+                  ))}
+                </Bar>
+                <defs>
+                  <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="var(--secondary)" stopOpacity={0.8}/>
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          )}
+      </div>
+      
+      <div className="card table-card">
+         <h3 style={{padding: '1.5rem', margin: 0}}>Daily Risk Ledger</h3>
+         <table className="worker-table">
+          <thead><tr><th>Date Evaluated</th><th>Zone</th><th>Weather Risk</th><th>AQI Risk</th><th>Combined Score</th><th>Status</th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem'}}>Loading historical telemetry...</td></tr> :
+             filteredData.length === 0 ? <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem', color:'var(--on-surface-variant)'}}>No records found. Try adjusting your filters.</td></tr> :
+             [...filteredData].reverse().map((h, i) => (
+              <tr key={i}>
+                <td className="date-cell" style={{fontWeight: 600}}>{h.name}</td>
+                <td><span className="badge badge-info">Profile Zone</span></td>
+                <td><span style={{fontSize:'0.875rem', fontWeight:600, color: h.weatherScore > 50 ? 'var(--error)' : 'var(--primary)'}}>{h.weatherScore ?? '—'}</span></td>
+                <td><span style={{fontSize:'0.875rem', fontWeight:600, color: h.aqiScore > 50 ? 'var(--tertiary)' : 'var(--on-surface-variant)'}}>{h.aqiScore ?? '—'}</span></td>
+                <td style={{fontWeight: 700, color: h.score > 80 ? 'var(--error)' : 'var(--primary)'}}>{h.score}/100</td>
+                <td><span className={`badge ${h.score > 80 ? 'badge-error' : h.score > 50 ? 'badge-warning' : 'badge-active'}`}>{h.score > 80 ? 'Payout Eligible' : h.score > 50 ? 'Monitor' : 'Safe'}</span></td>
+              </tr>
+            ))}
+          </tbody>
+         </table>
+      </div>
     </div>
   )
 }
@@ -137,7 +398,10 @@ function PoliciesView() {
       try {
         const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
         if (pRes.data && pRes.data.id) {
-           const res = await api.get(`/api/v1/policies?workerId=${pRes.data.id}`)
+           const wRes = await api.get('/api/v1/workers').catch(() => ({ data: [] }))
+           const myWorker = wRes.data.find(w => w.email === pRes.data.email)
+           const targetWorkerId = pRes.data.id;
+           const res = await api.get(`/api/v1/policies?workerId=${targetWorkerId}`)
            setPolicies(res.data)
         }
       } catch (err) {
@@ -203,8 +467,11 @@ function ClaimsView() {
       try {
         const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
         if (pRes.data && pRes.data.id) {
+           const wRes = await api.get('/api/v1/workers').catch(() => ({ data: [] }))
+           const myWorker = wRes.data.find(w => w.email === pRes.data.email)
+           const targetWorkerId = pRes.data.id;
            const res = await api.get('/api/v1/claims')
-           setClaims(res.data.filter(c => c.workerId === pRes.data.id).slice(0, 5))
+           setClaims(res.data.filter(c => c.workerId === targetWorkerId).slice(0, 5))
         }
       } catch (err) {
         console.error("Failed loading claims", err)
@@ -297,7 +564,10 @@ function EarningsView() {
       try {
         const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
         if (pRes.data && pRes.data.id) {
-           const res = await api.get(`/api/v1/payments/worker/${pRes.data.id}`)
+           const wRes = await api.get('/api/v1/workers').catch(() => ({ data: [] }))
+           const myWorker = wRes.data.find(w => w.email === pRes.data.email)
+           const targetWorkerId = pRes.data.id;
+           const res = await api.get(`/api/v1/payments/worker/${targetWorkerId}`)
           setPayments(res.data.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)))
         }
       } catch (err) {
@@ -479,41 +749,149 @@ function EarningsView() {
 /* ── PROFILE — fully editable ── */
 function ProfileView() {
   const [editing, setEditing] = useState(false);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [workerId, setWorkerId] = useState(null);
+
   // Persistent Profile Logic
   const [form, setForm] = useState(() => {
     const saved = localStorage.getItem('gigshield_profile');
     return saved ? JSON.parse(saved) : { name: 'Alex Rivera', email: 'alex.rivera@gigshield.ai', phone: '+1 (555) 012-3456', location: 'New York, NY 10001' };
   });
   
-  const [photo, setPhoto] = useState(() => localStorage.getItem('gigshield_photo'));
+  const [photo, setPhoto] = useState(null);
+  const [userId, setUserId] = useState(null);
   
   const [platforms, setPlatforms] = useState(() => {
     const saved = localStorage.getItem('gigshield_platforms');
     return saved ? JSON.parse(saved) : ['Uber', 'DoorDash', 'Lyft'];
   });
   
-  const [modalConfig, setModalConfig] = useState(null);
+  const [workingArea, setWorkingArea] = useState(() => {
+    const saved = localStorage.getItem('gigshield_profile');
+    const parsed = saved ? JSON.parse(saved) : {};
+    return {
+      workingCity: parsed.workingCity || 'New York',
+      workingZone: parsed.workingZone || 'Manhattan', // Used as Area
+      activePlatforms: parsed.activePlatforms || 'Uber, DoorDash',
+      workingHoursStart: parsed.workingHoursStart || '09:00',
+      workingHoursEnd: parsed.workingHoursEnd || '17:00'
+    };
+  });
 
-  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
+  const [modalConfig, setModalConfig] = useState(null);
+  const [newPlatform, setNewPlatform] = useState('');
   const navigate = useNavigate()
 
-  const handlePhotoUpload = (e) => {
+  useEffect(() => {
+    async function loadWorkerProfile() {
+      try {
+        const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
+        if (pRes.data && pRes.data.id) {
+           const idStr = String(pRes.data.id);
+           setUserId(idStr);
+           setPhoto(localStorage.getItem(`gigshield_photo_${idStr}`));
+           
+           setForm(prev => ({
+             ...prev,
+             name: pRes.data.username || prev.name,
+             email: pRes.data.email || prev.email
+           }))
+           const wRes = await api.get('/api/v1/workers').catch(() => ({ data: [] }))
+           const myWorker = wRes.data.find(w => w.email === pRes.data.email)
+           if (myWorker) {
+             setWorkerId(myWorker.id);
+             setForm(prev => ({
+               ...prev,
+               name: pRes.data.username || prev.name,
+               email: pRes.data.email || prev.email,
+               phone: myWorker.phone || prev.phone,
+               location: myWorker.address || prev.location
+             }))
+             setWorkingArea(prev => ({
+               workingCity: myWorker.workingCity || prev.workingCity,
+               workingZone: myWorker.workingZone || prev.workingZone,
+               activePlatforms: myWorker.activePlatforms || prev.activePlatforms,
+               workingHoursStart: myWorker.workingHours ? myWorker.workingHours.split(' - ')[0] : prev.workingHoursStart,
+               workingHoursEnd: myWorker.workingHours ? myWorker.workingHours.split(' - ')[1] : prev.workingHoursEnd
+             }))
+             if (myWorker.activePlatforms) {
+               setPlatforms(myWorker.activePlatforms.split(',').map(s => s.trim()).filter(Boolean))
+               localStorage.setItem('gigshield_platforms', JSON.stringify(myWorker.activePlatforms.split(',').map(s=>s.trim()).filter(Boolean)))
+             }
+           }
+        }
+      } catch (err) {
+        console.error("Dashboard fetch error:", err)
+      } finally {
+        setLoadingConfig(false)
+      }
+    }
+    loadWorkerProfile()
+  }, [])
+
+  const setF = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
+  const setWA = k => e => setWorkingArea(f => ({ ...f, [k]: e.target.value }))
+
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result;
-        setPhoto(base64);
-        localStorage.setItem('gigshield_photo', base64);
+        
+        // Compress using Canvas to prevent localStorage QuotaExceeded
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 400; // max width/height
+
+          if (width > height) {
+            if (width > maxDim) { height *= maxDim / width; width = maxDim; }
+          } else {
+            if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+          setPhoto(compressedBase64);
+          
+          const targetId = userId || 'default';
+          try {
+            localStorage.setItem(`gigshield_photo_${targetId}`, compressedBase64);
+            window.dispatchEvent(new Event('photo_updated'));
+          } catch(err) {
+            console.error('Storage full, failed to save photo natively', err);
+          }
+        };
+        img.src = base64;
       };
       reader.readAsDataURL(file);
     }
   }
 
-  const toggleEdit = () => {
+  const toggleEdit = async () => {
     if (editing) {
-      localStorage.setItem('gigshield_profile', JSON.stringify(form));
-      setModalConfig({ type: 'info', title: 'Profile Secured', message: 'Your profile information has been securely updated and saved.' });
+      const combinedForm = { ...form, workingCity: workingArea.workingCity, workingZone: workingArea.workingZone, area: workingArea.workingZone };
+      localStorage.setItem('gigshield_profile', JSON.stringify(combinedForm));
+      // Save working area to backend
+      if (workerId) {
+         try {
+            await api.put(`/api/v1/worker/profile/working-area?workerId=${workerId}`, {
+               workingCity: workingArea.workingCity,
+               workingZone: workingArea.workingZone,
+               activePlatforms: platforms,
+               workingHours: `${workingArea.workingHoursStart} - ${workingArea.workingHoursEnd}`
+            });
+         } catch(err) {
+            console.error(err);
+         }
+      }
+      setModalConfig({ type: 'info', title: 'Profile Secured', message: 'Your profile and Working Area configurations have been securely updated.' });
     }
     setEditing(!editing)
   }
@@ -523,6 +901,7 @@ function ProfileView() {
       const newList = [...platforms, name];
       setPlatforms(newList);
       localStorage.setItem('gigshield_platforms', JSON.stringify(newList));
+      setWorkingArea(w => ({ ...w, activePlatforms: newList.join(', ') }));
       setModalConfig({ type: 'info', title: 'Platform Linked', message: `${name} has been successfully configured and connected to your account.` });
     }
   }
@@ -541,7 +920,7 @@ function ProfileView() {
         </div>
       )}
       <div className="section-top-row">
-        <div><h2 className="section-h2">My Profile</h2><p className="section-sub">Manage your account details and linked platforms.</p></div>
+        <div><h2 className="section-h2">My Profile &amp; Working Area</h2><p className="section-sub">Manage your account details, location configuration, and linked platforms.</p></div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn-secondary btn-with-icon" onClick={toggleEdit}>
             <Icon name="edit" size={15} /> {editing ? 'Save Profile' : 'Edit Profile'}
@@ -567,9 +946,9 @@ function ProfileView() {
           <h3>{form.name}</h3>
           <p className="profile-role">Gig Worker · Delivery &amp; Rideshare</p>
           <div className="profile-stats">
-            <div><span>Member Since</span><strong>Jan 2024</strong></div>
+            <div><span>Primary City</span><strong>{workingArea.workingCity}</strong></div>
             <div><span>Risk Score</span><strong style={{ color: 'var(--tertiary)' }}>Low (82)</strong></div>
-            <div><span>Claims Filed</span><strong>4</strong></div>
+            <div><span>Platforms Active</span><strong>{platforms.length}</strong></div>
           </div>
         </div>
         <div className="profile-details">
@@ -581,7 +960,7 @@ function ProfileView() {
                 { label: 'Full Name',  key: 'name',     type: 'text' },
                 { label: 'Email',      key: 'email',    type: 'email' },
                 { label: 'Phone',      key: 'phone',    type: 'tel' },
-                { label: 'Location',   key: 'location', type: 'text' },
+                { label: 'Billing Address',   key: 'location', type: 'text' },
               ].map(f => (
                 <div key={f.key} className="form-group">
                   <label>{f.label}</label>
@@ -589,7 +968,7 @@ function ProfileView() {
                     type={f.type}
                     className="form-input"
                     value={form[f.key]}
-                    onChange={set(f.key)}
+                    onChange={setF(f.key)}
                     disabled={!editing}
                     style={{ opacity: editing ? 1 : 0.8 }}
                   />
@@ -597,32 +976,110 @@ function ProfileView() {
               ))}
             </div>
           </div>
-          {/* Connected platforms */}
-          <div className="card" style={{ padding: '1.5rem' }}>
-            <h4 className="card-section-title">Connected Platforms</h4>
-            {platforms.map(pl => (
-              <div key={pl} className="platform-row">
-                <div className="platform-name"><Icon name="link" size={14} color="var(--on-surface-variant)" /> {pl}</div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <span className="badge badge-active">Connected</span>
-                  {editing && <button className="btn-secondary btn-sm" onClick={() => {
-                    const next = platforms.filter(p => p !== pl);
-                    setPlatforms(next);
-                    localStorage.setItem('gigshield_platforms', JSON.stringify(next));
-                  }}>Disconnect</button>}
+          
+          {/* Working Area Settings */}
+          <div className="card" style={{ padding: '1.5rem', marginBottom: '1rem', border: '1px solid rgba(255, 122, 0, 0.2)', background: 'linear-gradient(135deg, rgba(255,122,0,0.05), rgba(0,0,0,0))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+               <Icon name="cloud" size={18} color="var(--primary)" />
+               <h4 className="card-section-title" style={{marginBottom: 0}}>Working Area Configuration</h4>
+            </div>
+            
+            <p style={{fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginBottom: '1rem'}}>
+               Define your operational zone to enable precise real-time AI parametric triggers for weather and external disruptions.
+            </p>
+            {loadingConfig ? <p>Loading data...</p> : (
+            <div className="profile-form-grid">
+              {[
+                { label: 'Operational City',  key: 'workingCity',     type: 'text' },
+                { label: 'Area / Zone',      key: 'workingZone',    type: 'text' },
+              ].map(f => (
+                <div key={f.key} className="form-group">
+                  <label>{f.label}</label>
+                  <input
+                    type={f.type}
+                    className="form-input"
+                    value={workingArea[f.key] || ''}
+                    onChange={setWA(f.key)}
+                    disabled={!editing}
+                    style={{ opacity: editing ? 1 : 0.8 }}
+                  />
+                </div>
+              ))}
+              <div className="form-group">
+                <label>Working Hours</label>
+                <div style={{display: 'flex', gap: '0.5rem'}}>
+                  <select 
+                    className="form-input" 
+                    value={workingArea.workingHoursStart} 
+                    onChange={setWA('workingHoursStart')} 
+                    disabled={!editing}
+                    style={{ opacity: editing ? 1 : 0.8 }}
+                  >
+                    {[...Array(24)].map((_, i) => <option key={`s${i}`} value={`${i.toString().padStart(2, '0')}:00`}>{`${(i%12)||12}:00 ${i<12?'AM':'PM'}`}</option>)}
+                  </select>
+                  <span style={{alignSelf: 'center', color: 'var(--on-surface-variant)'}}>to</span>
+                  <select 
+                    className="form-input" 
+                    value={workingArea.workingHoursEnd} 
+                    onChange={setWA('workingHoursEnd')} 
+                    disabled={!editing}
+                    style={{ opacity: editing ? 1 : 0.8 }}
+                  >
+                    {[...Array(24)].map((_, i) => <option key={`e${i}`} value={`${i.toString().padStart(2, '0')}:00`}>{`${(i%12)||12}:00 ${i<12?'AM':'PM'}`}</option>)}
+                  </select>
                 </div>
               </div>
-            ))}
-            {!platforms.includes('Upwork') && (
-              <div className="platform-row">
-                <div className="platform-name"><Icon name="link" size={14} color="var(--on-surface-variant)" /> Upwork</div>
-                <button className="btn-secondary btn-sm btn-with-icon" onClick={() => linkPlatform('Upwork')}><Icon name="plus" size={12} /> Link</button>
-              </div>
+            </div>
             )}
-            {!platforms.includes('Fiverr') && (
-              <div className="platform-row">
-                <div className="platform-name"><Icon name="link" size={14} color="var(--on-surface-variant)" /> Fiverr</div>
-                <button className="btn-secondary btn-sm btn-with-icon" onClick={() => linkPlatform('Fiverr')}><Icon name="plus" size={12} /> Link</button>
+          </div>
+
+          {/* Connected platforms */}
+          <div className="card" style={{ padding: '1.5rem' }}>
+            <h4 className="card-section-title">Active Platforms</h4>
+            <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem'}}>
+               {platforms.map(pl => (
+                 <span key={pl} className="badge badge-active" style={{padding: '0.5rem 0.75rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                   {pl}
+                   {editing && <button onClick={() => {
+                      const next = platforms.filter(p => p !== pl);
+                      setPlatforms(next);
+                      localStorage.setItem('gigshield_platforms', JSON.stringify(next));
+                      setWorkingArea(w => ({ ...w, activePlatforms: next.join(', ') }));
+                    }} style={{background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', color: 'inherit'}}>✕</button>}
+                 </span>
+               ))}
+               {platforms.length === 0 && <span style={{color: 'var(--on-surface-variant)', fontSize: '0.875rem'}}>No platforms configured.</span>}
+            </div>
+            
+            {editing && (
+              <div style={{display: 'flex', gap: '0.5rem', marginTop: '1rem', borderTop: '1px solid rgba(255,122,0,0.2)', paddingTop: '1rem'}}>
+                <select 
+                  className="form-input" 
+                  value={newPlatform} 
+                  onChange={e => setNewPlatform(e.target.value)} 
+                  style={{flex: 1}}
+                >
+                  <option value="">Select a trending platform...</option>
+                  <option value="Uber">Uber</option>
+                  <option value="OLA">OLA</option>
+                  <option value="Rapido">Rapido</option>
+                  <option value="Swiggy">Swiggy</option>
+                  <option value="Zomato">Zomato</option>
+                  <option value="Blinkit">Blinkit</option>
+                  <option value="Zepto">Zepto</option>
+                  <option value="Dunzo">Dunzo</option>
+                  <option value="Shadowfax">Shadowfax</option>
+                  <option value="Porter">Porter</option>
+                </select>
+                <button 
+                  className="btn-primary" 
+                  onClick={() => {
+                    if (newPlatform.trim() && !platforms.includes(newPlatform.trim())) {
+                      linkPlatform(newPlatform.trim());
+                      setNewPlatform('');
+                    }
+                  }}
+                >Add Platform</button>
               </div>
             )}
           </div>
@@ -651,8 +1108,23 @@ function SettingsView() {
   
   const [profile, setProfile] = useState(() => {
     const saved = localStorage.getItem('gigshield_profile_alt');
-    return saved ? JSON.parse(saved) : { name: 'Marcus Chen', display: 'Chen_Deliveries', email: 'm.chen@gigshield.ai' };
+    return saved ? JSON.parse(saved) : { name: 'Loading...', display: 'Worker', email: 'loading@gigshield.ai' };
   })
+  
+  useEffect(() => {
+    async function loadSecureProfile() {
+      const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
+      if (pRes.data && pRes.data.id) {
+         setProfile(p => ({
+            ...p,
+            name: pRes.data.username || p.name,
+            email: pRes.data.email || p.email,
+            display: pRes.data.username ? pRes.data.username.split(' ')[0] + '_Delivery' : p.display
+         }));
+      }
+    }
+    loadSecureProfile();
+  }, [])
   const [editProfile, setEditProfile] = useState(false)
 
   const handleSaveSettings = () => {
@@ -839,15 +1311,17 @@ function SettingsView() {
 /* ── NAV CONFIG ── */
 const NAV_ITEMS = [
   { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
+  { id: 'history',   icon: 'history',   label: 'Risk History', badge: 'LIVE' },
   { id: 'policies',  icon: 'shield',    label: 'Policies'  },
   { id: 'claims',    icon: 'file',      label: 'Claims'    },
   { id: 'earnings',  icon: 'payments',  label: 'Payment History'  },
   { id: 'profile',   icon: 'person',    label: 'Profile'   },
   { id: 'settings',  icon: 'cog',       label: 'Settings'  },
 ]
-const SECTION_MAP = { dashboard: DashboardView, policies: PoliciesView, claims: ClaimsView, earnings: EarningsView, profile: ProfileView, settings: SettingsView }
+const SECTION_MAP = { dashboard: DashboardView, history: RiskHistoryView, policies: PoliciesView, claims: ClaimsView, earnings: EarningsView, profile: ProfileView, settings: SettingsView }
 const TITLES = {
   dashboard: { title: 'AI Risk Analysis',   subtitle: 'Your personalized income protection overview' },
+  history:   { title: 'Risk History',       subtitle: 'Historical breakdown of algorithmic risk assessments' },
   policies:  { title: 'My Policies',        subtitle: 'Manage and view your parametric coverage' },
   claims:    { title: 'Claims',             subtitle: 'History and status of all your claims' },
   earnings:  { title: 'Payments & Earnings',subtitle: 'Track earnings, payouts, and withdrawal history' },
@@ -862,6 +1336,7 @@ export default function WorkerDashboard() {
   const [userProfile, setUserProfile] = useState(null)
   const [kycDone, setKycDone] = useState(true) // default true to prevent flash
   const [showKycPopup, setShowKycPopup] = useState(false)
+  const [displayPhoto, setDisplayPhoto] = useState(null)
 
   // Load real user profile for sidebar & KYC status check
   useEffect(() => {
@@ -870,6 +1345,7 @@ export default function WorkerDashboard() {
         const res = await api.get('/auth/profile')
         if (res.data) {
           setUserProfile(res.data)
+          setDisplayPhoto(localStorage.getItem(`gigshield_photo_${res.data.id}`) || null);
           // Check if KYC is complete
           const kycStatus = localStorage.getItem('gigshield_kyc_done')
           // Also check if worker profile exists in backend
@@ -901,13 +1377,23 @@ export default function WorkerDashboard() {
     }
   }, [location.search])
 
+  // Listen for photo updates across the app component tree
+  useEffect(() => {
+    const handlePhotoUpdate = () => {
+      if (userProfile?.id) {
+        setDisplayPhoto(localStorage.getItem(`gigshield_photo_${userProfile.id}`));
+      }
+    };
+    window.addEventListener('photo_updated', handlePhotoUpdate);
+    return () => window.removeEventListener('photo_updated', handlePhotoUpdate);
+  }, [userProfile]);
+
   const { title, subtitle } = TITLES[activeNav] || TITLES.dashboard
   const ActiveSection = SECTION_MAP[activeNav] || DashboardView
 
   // Get display name: from localStorage profile or from backend
   const savedProfile = (() => { try { return JSON.parse(localStorage.getItem('gigshield_profile')) } catch { return null } })()
-  const displayName = savedProfile?.name || userProfile?.username || userProfile?.email || 'Worker'
-  const displayPhoto = localStorage.getItem('gigshield_photo')
+  const displayName = userProfile?.username || userProfile?.email || savedProfile?.name || 'Worker'
 
   return (
     <DashboardLayout navItems={NAV_ITEMS} activeNav={activeNav} setActiveNav={setActiveNav} role="worker" username={displayName} subtitle="Gig Worker" userPhoto={displayPhoto}>

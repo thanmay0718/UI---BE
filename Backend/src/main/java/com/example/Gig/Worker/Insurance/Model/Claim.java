@@ -23,17 +23,33 @@ import java.time.LocalDateTime;
 
         private String description;
 
-        private double amount;
+        private double amount; // originally requested amount or estimated default
 
-        private String status;
+        private String status; // PENDING, APPROVED, REJECTED, FLAGGED_FOR_REVIEW
 
-        private String location;
+        private String location; // lat,lon or city
 
         private Boolean fraudFlag;
 
         private LocalDateTime claimDate;
-
+        
+        // --- AI Integration Fields ---
+        
+        private Double fraudScore;
+        
+        private Double riskScore;
+        
+        private String decision; // AUTO_APPROVED, AUTO_REJECTED, MANUAL_REVIEW
+        
+        private Double approvedAmount;
+        
+        private String disruptionType; // RAIN, AQI, ZONE_RESTRICTION
+        
+        private String triggerSource; // SYSTEM_AUTO_TRIGGER, MANUAL
+        
+        private LocalDateTime processedAt;
 
         public void setCreatedAt(LocalDateTime now) {
+            this.claimDate = now;
+        }
     }
-}

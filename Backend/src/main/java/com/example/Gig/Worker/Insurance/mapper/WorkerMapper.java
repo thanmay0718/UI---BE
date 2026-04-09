@@ -34,6 +34,10 @@ public class WorkerMapper {
         dto.setRiskScore(worker.getRiskScore());
         dto.setKycStatus(worker.getKycStatus());
         dto.setCreatedAt(worker.getCreatedAt());
+        dto.setWorkingCity(worker.getWorkingCity());
+        dto.setWorkingZone(worker.getWorkingZone());
+        dto.setWorkingHours(worker.getWorkingHours());
+        dto.setActivePlatforms(worker.getActivePlatforms());
 
         // Never expose aadhaar, PAN, bank account in response
         dto.setAadhaarNumber("XXXX-XXXX-" + maskLast4(worker.getAadhaarNumber()));
@@ -41,6 +45,7 @@ public class WorkerMapper {
         dto.setBankAccountNumber("XXXX-XXXX-" + maskLast4(worker.getBankAccountNumber()));
 
         if (worker.getUser() != null) {
+            dto.setUserId(worker.getUser().getId());
             dto.setEmail(worker.getUser().getEmail());
             dto.setUsername(worker.getUser().getUsername());
         }

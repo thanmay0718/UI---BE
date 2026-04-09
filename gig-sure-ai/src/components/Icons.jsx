@@ -35,6 +35,11 @@ const PATHS = {
   link:          'M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71',
   send:          'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z',
   arrow_down:    'M19 9l-7 7-7-7',
+  history:       'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  location_on:   'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z',
+  cloud:         'M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z',
+  account_balance:'M3 22h18M6 18v-7m4 7v-7m4 7v-7m4 7v-7M12 2L2 7h20L12 2z',
+  account_balance_wallet: 'M21 12V7H5a2 2 0 010-4h16v4M21 12a2 2 0 010 4H3v-4h18z',
 }
 
 export function Icon({ name, size = 20, color = 'currentColor', strokeWidth = 1.75, className = '' }) {

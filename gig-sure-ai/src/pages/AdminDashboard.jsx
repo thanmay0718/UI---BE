@@ -660,10 +660,6 @@ function WorkersAdminView() {
   const [search, setSearch] = useState('')
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
-  const localProfile = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem('gigshield_profile') || '{}'); } catch { return {} }
-  }, []);
-  const localPhoto = localStorage.getItem('gigshield_photo');
 
   useEffect(() => {
     async function loadWorkers() {
@@ -733,8 +729,7 @@ function WorkersAdminView() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                       <div className="worker-avatar-sm" style={{ padding: 0, overflow: 'hidden', background: 'var(--surface-container-high)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                         {(() => {
-                          const isMatch = (localProfile.email === w.email || localProfile.name === w.username);
-                          const photoUrl = w.profileImage || (isMatch && localPhoto ? localPhoto : null);
+                          const photoUrl = w.profileImage || localStorage.getItem(`gigshield_photo_${w.id}`);
                           if (photoUrl) return <img src={photoUrl} alt="avatar" style={{width:'100%', height:'100%', objectFit:'cover'}} />;
                           return <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '0.8rem' }}>{(w.username || w.email || 'A')[0].toUpperCase()}</span>;
                         })()}
@@ -922,8 +917,36 @@ function AdminProfileView() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result;
-        setPhoto(base64);
-        localStorage.setItem('gigshield_admin_photo', base64);
+        
+        // Compress using Canvas to prevent localStorage QuotaExceeded
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 400; // max width/height
+
+          if (width > height) {
+            if (width > maxDim) { height *= maxDim / width; width = maxDim; }
+          } else {
+            if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+          setPhoto(compressedBase64);
+          
+          try {
+            localStorage.setItem('gigshield_admin_photo', compressedBase64);
+            window.dispatchEvent(new Event('photo_updated'));
+          } catch(err) {
+            console.error('Storage full, failed to save photo natively', err);
+          }
+        };
+        img.src = base64;
       };
       reader.readAsDataURL(file);
     }
@@ -1018,9 +1041,18 @@ export default function AdminDashboard() {
   const { title, subtitle } = TITLES[activeNav] || TITLES.dashboard
   const ActiveSection = SECTION_MAP[activeNav] || OverviewView
   const [modalConfig, setModalConfig] = useState(null)
+  
+  const [displayPhoto, setDisplayPhoto] = useState(() => localStorage.getItem('gigshield_admin_photo'))
+  useEffect(() => {
+    const handlePhotoUpdate = () => {
+      setDisplayPhoto(localStorage.getItem('gigshield_admin_photo'))
+    }
+    window.addEventListener('photo_updated', handlePhotoUpdate)
+    return () => window.removeEventListener('photo_updated', handlePhotoUpdate)
+  }, [])
 
   return (
-    <DashboardLayout navItems={NAV_ITEMS} activeNav={activeNav} setActiveNav={setActiveNav} role="admin" username={JSON.parse(localStorage.getItem('gigshield_admin_profile') || '{"name":"Ariana Osei-Adu"}').name} subtitle="Chief Auditor" userPhoto={localStorage.getItem('gigshield_admin_photo')}>
+    <DashboardLayout navItems={NAV_ITEMS} activeNav={activeNav} setActiveNav={setActiveNav} role="admin" username={JSON.parse(localStorage.getItem('gigshield_admin_profile') || '{"name":"Ariana Osei-Adu"}').name} subtitle="Chief Auditor" userPhoto={displayPhoto}>
       <GlobalModal config={modalConfig} onClose={() => setModalConfig(null)} />
       <div className="admin-dashboard">
         <div className="dash-header">

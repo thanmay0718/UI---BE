@@ -10,10 +10,10 @@ const validate = {
   pincode:           v => /^\d{6}$/.test(v) ? '' : 'Pincode must be exactly 6 digits',
   address:           v => v.trim().length >= 10 ? '' : 'Please enter a complete address (min 10 chars)',
   avgIncome:         v => (parseFloat(v) > 0) ? '' : 'Please enter a valid positive income amount',
-  aadhaarNumber:     v => /^\d{12}$/.test(v) ? '' : 'Aadhaar must be exactly 12 digits',
-  panNumber:         v => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v.toUpperCase()) ? '' : 'Invalid PAN format (e.g. ABCDE1234F)',
+  aadhaarNumber:     v => (v.includes('X') || /^\d{12}$/.test(v)) ? '' : 'Aadhaar must be exactly 12 digits',
+  panNumber:         v => (v.includes('X') || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v.toUpperCase())) ? '' : 'Invalid PAN format (e.g. ABCDE1234F)',
   bankName:          v => v.trim().length >= 3 ? '' : 'Please enter a valid bank name',
-  bankAccountNumber: v => /^\d{9,18}$/.test(v) ? '' : 'Bank account must be 9–18 digits',
+  bankAccountNumber: v => (v.includes('X') || /^\d{9,18}$/.test(v)) ? '' : 'Bank account must be 9–18 digits',
 }
 
 function FieldError({ msg }) {
@@ -39,13 +39,32 @@ export default function WorkerRegistration() {
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState({})
   const [errors, setErrors] = useState({})
+  const [workerId, setWorkerId] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
     async function loadEmail() {
       try {
         const res = await api.get('/auth/profile')
-        if (res.data?.email) setEmail(res.data.email)
+        if (res.data?.email) {
+          setEmail(res.data.email)
+          const wRes = await api.get('/api/v1/workers').catch(() => ({data: []}))
+          const myWorker = wRes.data.find(w => w.email === res.data.email)
+          if (myWorker) {
+            setWorkerId(myWorker.id)
+            setFormData({
+              area: myWorker.area || '',
+              pincode: myWorker.pincode || '',
+              address: myWorker.address || '',
+              deliverySegment: myWorker.deliverySegment || 'FOOD',
+              avgIncome: myWorker.avgIncome || '',
+              aadhaarNumber: myWorker.aadhaarNumber || '',
+              panNumber: myWorker.panNumber || '',
+              bankAccountNumber: myWorker.bankAccountNumber || '',
+              bankName: myWorker.bankName || ''
+            })
+          }
+        }
       } catch (err) {
         // Not logged in — show gentle message but don't redirect
         console.warn('Could not load profile, user may not be logged in yet')
@@ -126,12 +145,19 @@ export default function WorkerRegistration() {
     }
 
     try {
-      await api.post('/api/v1/workers', {
+      const payload = {
         email: currentEmail,
         ...formData,
         panNumber: formData.panNumber.toUpperCase(),
         avgIncome: parseFloat(formData.avgIncome) || 0
-      })
+      }
+      
+      if (workerId) {
+        await api.put(`/api/v1/workers/${workerId}`, payload)
+      } else {
+        await api.post('/api/v1/workers', payload)
+      }
+      
       setSubmitSuccess(true)
       // Store KYC status locally so dashboard knows
       localStorage.setItem('gigshield_kyc_done', 'true')

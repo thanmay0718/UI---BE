@@ -63,6 +63,20 @@ export default function DashboardLayout({
                 />
               </span>
               <span className="nav-label">{item.label}</span>
+              {item.badge && (
+                <span style={{
+                  marginLeft: 'auto',
+                  fontSize: '0.55rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.06em',
+                  color: 'var(--primary)',
+                  background: 'rgba(255,122,0,0.15)',
+                  border: '1px solid rgba(255,122,0,0.3)',
+                  borderRadius: '4px',
+                  padding: '1px 5px',
+                  lineHeight: '1.6'
+                }}>{item.badge}</span>
+              )}
             </button>
           ))}
         </nav>

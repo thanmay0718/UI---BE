@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 public class WorkerResponseDTO {
 
     private Long id;
+    private Long userId;          // The associated User's ID (for frontend matching)
     private String username;
     private String email;
 
@@ -18,6 +19,12 @@ public class WorkerResponseDTO {
     private String address;
     private String deliverySegment;
     private Double avgIncome;
+
+    private String drivingLicenseNumber; // Optional depending on segment
+    private String workingCity;
+    private String workingZone;
+    private String activePlatforms;
+    private String workingHours;
 
     // Always masked in response — never expose raw values
     private String aadhaarNumber;       // shown as XXXX-XXXX-1234

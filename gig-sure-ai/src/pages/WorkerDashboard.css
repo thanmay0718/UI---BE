@@ -601,3 +601,164 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* === 3D Dynamic Info Charts === */
+.dashboard-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.dashboard-title-text h1 { font-family: var(--font-display); font-size: 1.75rem; color: var(--on-surface); }
+.dashboard-location-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(255,122,0,0.1);
+  border: 1px solid rgba(255,122,0,0.2);
+  border-radius: 50px;
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(255,122,0,0.15);
+  animation: locationGlow 3s ease-in-out infinite;
+}
+@keyframes locationGlow {
+  0% { box-shadow: 0 4px 15px rgba(255,122,0,0.15); }
+  50% { box-shadow: 0 4px 25px rgba(255,122,0,0.3); }
+  100% { box-shadow: 0 4px 15px rgba(255,122,0,0.15); }
+}
+
+.pie-chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.05) 0%, transparent 70%);
+  border-radius: 20px;
+}
+
+/* 3D Wrapper */
+.pie-chart-3d-wrapper {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  perspective: 1000px;
+}
+.pie-chart-3d {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  transform: rotateX(20deg) rotateY(0deg);
+  box-shadow: 0 25px 40px rgba(0,0,0,0.5), inset 0 5px 25px rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.pie-chart-3d-wrapper:hover .pie-chart-3d {
+  transform: rotateX(5deg) rotateY(15deg) scale(1.05);
+}
+
+.pie-inner-circle {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: var(--surface-container-high);
+  box-shadow: inset 0 10px 20px rgba(0,0,0,0.6), 0 10px 20px rgba(255,122,0,0.4);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.05);
+  transform: translateZ(20px);
+}
+.pie-inner-circle h4 {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  margin: 0;
+  color: var(--on-surface);
+  line-height: 1;
+}
+.pie-inner-circle p {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+  letter-spacing: 0.1em;
+  margin-top: 0.25rem;
+}
+
+/* Rain Animations inside Inner Circle */
+.anim-rain-container {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none; overflow: hidden;
+  background: linear-gradient(180deg, rgba(30,100,160,0.2) 0%, rgba(10,30,50,0.6) 100%);
+}
+.anim-drop {
+  position: absolute;
+  width: 2px;
+  height: 25px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(120, 200, 255, 0.9));
+  animation: rain-fall linear infinite;
+}
+@keyframes rain-fall {
+  0% { transform: translateY(-30px) scaleY(1); opacity: 0; }
+  20% { opacity: 1; }
+  80% { transform: translateY(130px) scaleY(1.3); opacity: 1; }
+  100% { transform: translateY(150px) scaleY(0); opacity: 0; }
+}
+
+/* Smog / Air Animations */
+.anim-air-container {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none; overflow: hidden;
+  background: radial-gradient(circle, rgba(140, 140, 140, 0.2) 0%, rgba(60,60,60,0.6) 100%);
+}
+.anim-smog {
+  position: absolute;
+  width: 80px; height: 30px;
+  background: rgba(180, 180, 180, 0.4);
+  border-radius: 20px;
+  filter: blur(10px);
+  animation: smog-drift linear infinite alternate;
+}
+@keyframes smog-drift {
+  0% { transform: translate(-40px, -10px) scale(1); opacity: 0.3; }
+  100% { transform: translate(40px, 10px) scale(1.2); opacity: 0.8; }
+}
+
+/* Default / Clean Weather Animation */
+.anim-clean-container {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none; overflow: hidden;
+  background: radial-gradient(circle at 30% 30%, rgba(255,230,150,0.2) 0%, transparent 60%);
+}
+.anim-sun {
+  position: absolute; right: 20%; top: 20%;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255, 200, 50, 0.8);
+  box-shadow: 0 0 20px rgba(255,200,50,0.5);
+  filter: blur(2px);
+  animation: sun-pulse 4s infinite alternate;
+}
+@keyframes sun-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 30px rgba(255,200,50,0.8); }
+}
+
+/* Custom Select Form Input */
+select.form-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff7a00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+select.form-input option {
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  padding: 0.5rem;
+}

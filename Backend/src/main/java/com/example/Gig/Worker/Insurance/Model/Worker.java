@@ -57,6 +57,19 @@ public class Worker {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+    
+    // --- Working Area Fields ---
+    @Column(name = "working_city")
+    private String workingCity;
+
+    @Column(name = "working_zone")
+    private String workingZone;
+
+    @Column(name = "active_platforms")
+    private String activePlatforms; // Store comma-separated
+
+    @Column(name = "working_hours")
+    private String workingHours;
 
     // Relationship to User
     @OneToOne
