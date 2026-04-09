@@ -767,9 +767,252 @@ function WorkersAdminView() {
   )
 }
 
+/* =========== AI MONITOR — NEW =========== */
+function AIMonitorView() {
+  const [decisions, setDecisions] = useState(null)
+  const [auditClaims, setAuditClaims] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [simLoading, setSimLoading] = useState(false)
+  const [simResult, setSimResult] = useState(null)
+  const [simWorkerId, setSimWorkerId] = useState('')
+  const [simPolicyId, setSimPolicyId] = useState('')
+  const [simCity, setSimCity] = useState('Mumbai')
+  const [simError, setSimError] = useState('')
+
+  useEffect(() => {
+    async function fetchAI() {
+      try {
+        const [decRes, claimsRes] = await Promise.all([
+          api.get('/api/ai/audit/decisions').catch(() => ({ data: null })),
+          api.get('/api/ai/audit/claims').catch(() => ({ data: [] }))
+        ])
+        setDecisions(decRes.data)
+        setAuditClaims(Array.isArray(claimsRes.data) ? claimsRes.data : [])
+      } catch (err) {
+        console.error('AI Monitor fetch error', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAI()
+  }, [])
+
+  const handleSimulate = async () => {
+    if (!simWorkerId || !simPolicyId) { setSimError('Worker ID and Policy ID are required.'); return }
+    setSimError('')
+    setSimLoading(true)
+    setSimResult(null)
+    try {
+      const res = await api.get(`/api/ai/demo/simulate-rain?workerId=${simWorkerId}&policyId=${simPolicyId}&city=${encodeURIComponent(simCity)}`)
+      setSimResult(res.data)
+    } catch (err) {
+      setSimError(err.response?.data?.message || 'Simulation failed. Check workerId/policyId exist with an ACTIVE policy.')
+    } finally {
+      setSimLoading(false)
+    }
+  }
+
+  const decisionColor = (d) => d === 'AUTO_APPROVED' ? 'var(--tertiary)' : d === 'AUTO_REJECTED' ? 'var(--error)' : 'var(--primary)'
+  const decisionBadge = (d) => d === 'AUTO_APPROVED' ? 'badge-active' : d === 'AUTO_REJECTED' ? 'badge-error' : 'badge-warning'
+
+  return (
+    <div className="section-content">
+      {/* KPI Row */}
+      <div className="admin-metrics" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+        {loading ? Array(5).fill(0).map((_,i) => (
+          <div key={i} className="kpi-card card" style={{ opacity: 0.4, minHeight: '110px' }} />
+        )) : [
+          { label: 'Total AI Claims',    value: decisions?.totalClaims ?? 0,      color: 'var(--on-surface)',  icon: 'activity' },
+          { label: 'Auto Approved',      value: decisions?.approved ?? 0,          color: 'var(--tertiary)',    icon: 'check' },
+          { label: 'Auto Rejected',      value: decisions?.rejected ?? 0,          color: 'var(--error)',       icon: 'alert' },
+          { label: 'Flagged for Review', value: decisions?.flaggedForReview ?? 0,   color: 'var(--primary)',     icon: 'flag' },
+          { label: 'Total AI Payout',    value: decisions?.totalPayout ?? '₹0.00', color: 'var(--tertiary)',    icon: 'payments', isStr: true },
+        ].map(m => (
+          <div key={m.label} className="kpi-card card">
+            <div className="kpi-top">
+              <span className="kpi-icon-wrap"><Icon name={m.icon} size={20} color={m.color} /></span>
+            </div>
+            <div className="kpi-value" style={{ color: m.color, WebkitTextFillColor: m.color, fontFamily: 'var(--font-display)', fontSize: m.isStr ? '1.25rem' : '2rem', fontWeight: 800 }}>{m.value}</div>
+            <div className="kpi-label">{m.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Decision Breakdown */}
+      {decisions?.decisionBreakdown && (
+        <div className="card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+          <div className="chart-header" style={{ marginBottom: '1.25rem' }}>
+            <div>
+              <h3>AI Decision Breakdown</h3>
+              <p style={{ fontSize: '0.775rem', color: 'var(--on-surface-variant)', marginTop: '0.2rem' }}>Distribution of automated claim decisions across all workers</p>
+            </div>
+            <span className="badge badge-active">Live Engine</span>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            {Object.entries(decisions.decisionBreakdown).map(([dec, count]) => (
+              <div key={dec} style={{ flex: 1, minWidth: '160px', padding: '1.25rem', background: 'var(--surface-container)', borderRadius: '12px', border: `1px solid ${decisionColor(dec)}33`, textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: decisionColor(dec), fontFamily: 'var(--font-display)' }}>{count}</div>
+                <span className={`badge ${decisionBadge(dec)}`} style={{ marginTop: '0.5rem', display: 'inline-block' }}>{dec.replace(/_/g, ' ')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* AI Pipeline Demo Simulator */}
+      <div className="card" style={{ padding: '1.75rem', marginBottom: '1.5rem', border: '1px solid rgba(255,122,0,0.25)', background: 'rgba(255,122,0,0.03)' }}>
+        <div className="chart-header" style={{ marginBottom: '1.25rem' }}>
+          <div>
+            <h3>🌧 AI Pipeline Simulator</h3>
+            <p style={{ fontSize: '0.775rem', color: 'var(--on-surface-variant)', marginTop: '0.2rem' }}>Trigger a real-time AI claim pipeline for any worker — for demos or manual testing.</p>
+          </div>
+          <span className="badge badge-warning">Demo Mode</span>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {[
+            { label: 'Worker ID', value: simWorkerId, set: setSimWorkerId, placeholder: 'e.g. 1' },
+            { label: 'Policy ID', value: simPolicyId, set: setSimPolicyId, placeholder: 'e.g. 1' },
+            { label: 'City', value: simCity, set: setSimCity, placeholder: 'e.g. Mumbai' },
+          ].map(f => (
+            <div key={f.label} style={{ flex: 1, minWidth: '140px' }}>
+              <label style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '0.4rem' }}>{f.label}</label>
+              <input className="form-input" value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder} />
+            </div>
+          ))}
+          <button
+            className="btn-primary btn-with-icon"
+            onClick={handleSimulate}
+            disabled={simLoading}
+            style={{ alignSelf: 'flex-end', height: '42px', minWidth: '160px', justifyContent: 'center', opacity: simLoading ? 0.7 : 1 }}
+          >
+            <Icon name="zap" size={15} />
+            {simLoading ? 'Processing...' : 'Simulate Rain ⚡'}
+          </button>
+        </div>
+        {simError && <p style={{ color: 'var(--error)', marginTop: '0.75rem', fontSize: '0.85rem' }}>⚠ {simError}</p>}
+        {simResult && (
+          <div style={{ marginTop: '1.25rem', padding: '1.25rem', background: 'var(--surface-container)', borderRadius: '12px', border: '1px solid rgba(74,225,131,0.2)' }}>
+            <p style={{ color: 'var(--tertiary)', fontWeight: 700, marginBottom: '0.75rem', fontSize: '0.875rem' }}>✅ AI Pipeline Complete — Claim C-{simResult.claimResult?.claimId}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem' }}>
+              {[
+                { label: 'Risk Score',      value: simResult.claimResult?.riskScore ?? '—' },
+                { label: 'Fraud Score',     value: simResult.claimResult?.fraudScore ?? '—' },
+                { label: 'Decision',        value: simResult.claimResult?.decision ?? '—' },
+                { label: 'Status',          value: simResult.claimResult?.status ?? '—' },
+                { label: 'Approved Payout', value: simResult.claimResult?.approvedAmount ?? '₹0.00' },
+              ].map(r => (
+                <div key={r.label} style={{ padding: '0.75rem', background: 'var(--surface-container-high)', borderRadius: '8px' }}>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--on-surface-variant)', margin: '0 0 0.2rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{r.label}</p>
+                  <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--on-surface)', margin: 0 }}>{String(r.value)}</p>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize:'0.75rem', color:'var(--on-surface-variant)', marginTop:'0.75rem', fontStyle:'italic' }}>{simResult.interviewLine}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Auto-Triggered Claims Stream */}
+      <div className="card table-card">
+        <div className="chart-header" style={{ padding: '1.25rem 1.5rem' }}>
+          <div>
+            <h3>Auto-Triggered Claims Stream</h3>
+            <p style={{ fontSize: '0.775rem', color: 'var(--on-surface-variant)', marginTop: '0.2rem' }}>All claims auto-created by the GigShield AI Trigger Engine</p>
+          </div>
+          <span className="live-status-badge"><span className="live-dot" />AI Engine Active</span>
+        </div>
+        {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>Loading AI claim stream...</div> : (
+        <table className="admin-table">
+          <thead><tr><th>Claim ID</th><th>Worker</th><th>Disruption</th><th>Risk Score</th><th>Fraud Score</th><th>AI Decision</th><th>Payout</th><th>Status</th></tr></thead>
+          <tbody>
+            {auditClaims.length === 0 ? (
+              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--on-surface-variant)' }}>No auto-triggered claims yet. Run the simulator or wait for the scheduler to fire.</td></tr>
+            ) : auditClaims.map(c => (
+              <tr key={c.claimId}>
+                <td className="claim-id">C-{c.claimId}</td>
+                <td style={{ fontWeight: 500 }}>Worker #{c.workerId}</td>
+                <td><span className="badge badge-info">{c.disruptionType || 'RAIN'}</span></td>
+                <td>
+                  <span style={{ fontWeight: 700, color: (c.riskScore||0) > 70 ? 'var(--error)' : (c.riskScore||0) > 40 ? 'var(--primary)' : 'var(--tertiary)' }}>
+                    {c.riskScore != null ? Number(c.riskScore).toFixed(1) : '—'}
+                  </span>
+                </td>
+                <td>
+                  <span style={{ fontWeight: 700, color: (c.fraudScore||0) > 60 ? 'var(--error)' : (c.fraudScore||0) > 30 ? 'var(--primary)' : 'var(--tertiary)' }}>
+                    {c.fraudScore != null ? Number(c.fraudScore).toFixed(1) : '—'}
+                  </span>
+                </td>
+                <td><span className={`badge ${decisionBadge(c.decision)}`}>{c.decision ? c.decision.replace(/_/g,' ') : '—'}</span></td>
+                <td style={{ fontWeight: 700, color: 'var(--tertiary)' }}>{c.approvedAmount || '₹0.00'}</td>
+                <td><span className={`badge ${c.status === 'APPROVED' ? 'badge-active' : c.status === 'FLAGGED_FOR_REVIEW' ? 'badge-error' : 'badge-warning'}`}>{c.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* =========== FRAUD =========== */
 function FraudAdminView() {
-  const [alerts, setAlerts] = useState(FRAUD_ALERTS)
+  const [alerts, setAlerts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadFraud() {
+      try {
+        // Load real MANUAL_REVIEW claims from AI audit
+        const [auditRes, claimsRes] = await Promise.all([
+          api.get('/api/ai/audit/claims').catch(() => ({ data: [] })),
+          api.get('/api/v1/claims').catch(() => ({ data: [] }))
+        ])
+        const auditClaims = Array.isArray(auditRes.data) ? auditRes.data : []
+        const allClaims = Array.isArray(claimsRes.data) ? claimsRes.data : []
+
+        // Combine: AI flagged + manually flagged from claims
+        const flaggedFromAI = auditClaims
+          .filter(c => c.decision === 'MANUAL_REVIEW' || c.status === 'FLAGGED_FOR_REVIEW')
+          .map((c, i) => ({
+            id: `FRD-AI-${c.claimId}`,
+            worker: `Worker #${c.workerId}`,
+            type: c.disruptionType || 'RAIN',
+            amount: c.approvedAmount || '₹0.00',
+            probability: Math.round((c.fraudScore || 0)),
+            flag: c.fraudScore > 60 ? 'High fraud score' : c.fraudScore > 30 ? 'Pattern anomaly' : 'Manual review queued',
+            time: c.claimDate ? new Date(c.claimDate).toLocaleString() : 'Recently',
+            sector: 'AI Detected',
+            source: 'AI'
+          }))
+
+        const flaggedManual = allClaims
+          .filter(c => c.status === 'FLAGGED' && !flaggedFromAI.some(f => f.id.includes(c.id)))
+          .slice(0, 5)
+          .map(c => ({
+            id: `FRD-${c.id}`,
+            worker: `Worker #${c.workerId}`,
+            type: 'Manual Flag',
+            amount: `₹${c.amount || 0}`,
+            probability: c.fraudFlag ? 75 : 40,
+            flag: 'Admin flagged',
+            time: c.claimDate ? new Date(c.claimDate).toLocaleDateString() : 'N/A',
+            sector: 'Claims',
+            source: 'Manual'
+          }))
+
+        const combined = [...flaggedFromAI, ...flaggedManual]
+        setAlerts(combined.length > 0 ? combined : FRAUD_ALERTS) // fallback to static if none
+      } catch (err) {
+        console.error('Fraud load error', err)
+        setAlerts(FRAUD_ALERTS)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadFraud()
+  }, [])
+
   const dismiss = id => setAlerts(a => a.filter(x => x.id !== id))
   const block   = id => { alert(`Worker blocked for alert ${id}`); dismiss(id) }
 
@@ -1018,6 +1261,7 @@ function AdminProfileView() {
 /* ── NAV + SHELL ── */
 const NAV_ITEMS = [
   { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
+  { id: 'ai',        icon: 'zap',       label: 'AI Monitor', badge: 'NEW' },
   { id: 'policies',  icon: 'shield',    label: 'Policies'  },
   { id: 'claims',    icon: 'file',      label: 'Claims'    },
   { id: 'workers',   icon: 'users',     label: 'Workers'   },
@@ -1025,9 +1269,10 @@ const NAV_ITEMS = [
   { id: 'profile',   icon: 'person',    label: 'Profile'   },
   { id: 'settings',  icon: 'cog',       label: 'Settings'  },
 ]
-const SECTION_MAP = { dashboard: OverviewView, policies: PoliciesAdminView, claims: ClaimsAdminView, workers: WorkersAdminView, fraud: FraudAdminView, profile: AdminProfileView, settings: AdminSettingsView }
+const SECTION_MAP = { dashboard: OverviewView, ai: AIMonitorView, policies: PoliciesAdminView, claims: ClaimsAdminView, workers: WorkersAdminView, fraud: FraudAdminView, profile: AdminProfileView, settings: AdminSettingsView }
 const TITLES = {
   dashboard: { title: 'Admin Overview',       subtitle: 'Real-time intelligence across the GigShield platform' },
+  ai:        { title: 'AI Monitor',           subtitle: 'Live AI Orchestration Engine — decisions, payouts, fraud & demo simulator' },
   policies:  { title: 'Policies',             subtitle: 'Platform-wide policy management' },
   claims:    { title: 'Claims Management',    subtitle: 'Review and process incoming claims in real time' },
   workers:   { title: 'Worker Registry',      subtitle: 'All registered workers and risk profiles' },

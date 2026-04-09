@@ -69,6 +69,12 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/workers").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/workers").permitAll()
 
+                        // 🤖 AI Orchestration Layer — fully public (no auth required for demo/testing)
+                        .requestMatchers("/api/ai/**").permitAll()
+
+                        // 🧪 Test endpoints
+                        .requestMatchers("/api/test/**").permitAll()
+
                         // Role-based APIs
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/workers/**").hasRole("WORKER")

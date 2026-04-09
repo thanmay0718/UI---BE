@@ -457,6 +457,8 @@ function PoliciesView() {
   )
 }
 
+/* ——————————————————— ENHANCED CLAIMS VIEW ——————————————————— */
+
 function ClaimsView() {
   const navigate = useNavigate()
   const [claims, setClaims] = useState([])
@@ -467,14 +469,12 @@ function ClaimsView() {
       try {
         const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
         if (pRes.data && pRes.data.id) {
-           const wRes = await api.get('/api/v1/workers').catch(() => ({ data: [] }))
-           const myWorker = wRes.data.find(w => w.email === pRes.data.email)
-           const targetWorkerId = pRes.data.id;
+           const targetWorkerId = pRes.data.id
            const res = await api.get('/api/v1/claims')
-           setClaims(res.data.filter(c => c.workerId === targetWorkerId).slice(0, 5))
+           setClaims(res.data.filter(c => c.workerId === targetWorkerId).slice(0, 10))
         }
       } catch (err) {
-        console.error("Failed loading claims", err)
+        console.error('Failed loading claims', err)
       } finally {
         setLoading(false)
       }
@@ -482,40 +482,73 @@ function ClaimsView() {
     loadWorkerClaims()
   }, [])
 
+  const decisionBadge = (d) =>
+    d === 'AUTO_APPROVED' ? 'badge-active' :
+    d === 'AUTO_REJECTED' ? 'badge-error' :
+    d === 'MANUAL_REVIEW' ? 'badge-warning' : 'badge-info'
+
   return (
     <div className="section-content">
       <div className="section-top-row">
-        <div><h2 className="section-h2">Claims History</h2><p className="section-sub">All your past and active claims with payout status.</p></div>
+        <div>
+          <h2 className="section-h2">Claims History</h2>
+          <p className="section-sub">All your past and active claims — including AI decision scores and payout amounts.</p>
+        </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn-secondary btn-with-icon" onClick={() => navigate('/worker/claims')}>
-            <Icon name="activity" size={15} /> View All & Filter
+            <Icon name="activity" size={15} /> View All
           </button>
           <Link to="/claim" className="btn-primary btn-with-icon"><Icon name="plus" size={16} /> File Claim</Link>
         </div>
       </div>
-      <div className="card table-card">
+      <div className="card table-card" style={{ overflowX: 'auto' }}>
         {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>Loading claims ledger...</div> : (
-        <table className="worker-table">
-          <thead><tr><th>Claim ID</th><th>Policy ID</th><th>Amount</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+        <table className="worker-table" style={{ minWidth: '820px' }}>
+          <thead><tr>
+            <th>Claim ID</th><th>Policy</th><th>Type</th>
+            <th>Risk Score</th><th>Fraud Score</th><th>AI Decision</th>
+            <th>Payout</th><th>Status</th><th>Date</th>
+          </tr></thead>
           <tbody>
             {claims.map(c => (
               <tr key={c.id}>
                 <td className="claim-id-cell">C-{c.id}</td>
                 <td>P-{c.policyId}</td>
-                <td style={{ color: 'var(--tertiary)', fontWeight: 600 }}>&#8377;{c.amount || 0}</td>
+                <td><span className="badge badge-info">{c.disruptionType || 'MANUAL'}</span></td>
+                <td>
+                  {c.riskScore != null
+                    ? <span style={{ fontWeight: 700, color: c.riskScore > 70 ? 'var(--error)' : c.riskScore > 40 ? 'var(--primary)' : 'var(--tertiary)' }}>{Number(c.riskScore).toFixed(1)}</span>
+                    : <span style={{ color: 'var(--on-surface-variant)' }}>—</span>}
+                </td>
+                <td>
+                  {c.fraudScore != null
+                    ? <span style={{ fontWeight: 700, color: c.fraudScore > 60 ? 'var(--error)' : c.fraudScore > 30 ? 'var(--primary)' : 'var(--tertiary)' }}>{Number(c.fraudScore).toFixed(1)}</span>
+                    : <span style={{ color: 'var(--on-surface-variant)' }}>—</span>}
+                </td>
+                <td>
+                  {c.decision
+                    ? <span className={`badge ${decisionBadge(c.decision)}`}>{c.decision.replace(/_/g, ' ')}</span>
+                    : <span style={{ color: 'var(--on-surface-variant)', fontSize: '0.8rem' }}>Pending AI</span>}
+                </td>
+                <td style={{ fontWeight: 700, color: c.approvedAmount ? 'var(--tertiary)' : 'var(--on-surface-variant)' }}>
+                  {c.approvedAmount ? `₹${Number(c.approvedAmount).toFixed(2)}` : c.amount ? `₹${c.amount}` : '—'}
+                </td>
+                <td><span className={`badge ${c.status === 'APPROVED' ? 'badge-active' : c.status === 'FLAGGED' || c.status === 'FLAGGED_FOR_REVIEW' ? 'badge-error' : 'badge-warning'}`}>{c.status}</span></td>
                 <td className="date-cell">{c.claimDate ? new Date(c.claimDate).toLocaleDateString() : 'N/A'}</td>
-                <td><span className={`badge ${c.status==='APPROVED'?'badge-active':c.status==='FLAGGED'?'badge-error':'badge-warning'}`}>{c.status}</span></td>
-                <td><button className="btn-secondary btn-sm btn-with-icon" onClick={() => navigate('/worker/claims')}><Icon name="eye" size={13} /> View</button></td>
               </tr>
             ))}
-            {claims.length === 0 && <tr><td colSpan="6" style={{textAlign:'center', padding:'2rem', color:'var(--on-surface-variant)'}}>No claims filed yet. <Link to="/claim" style={{ color: 'var(--primary)' }}>File your first claim →</Link></td></tr>}
+            {claims.length === 0 && (
+              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: 'var(--on-surface-variant)' }}>
+                No claims filed yet. <Link to="/claim" style={{ color: 'var(--primary)' }}>File your first claim →</Link>
+              </td></tr>
+            )}
           </tbody>
         </table>
         )}
         {!loading && claims.length > 0 && (
           <div style={{ textAlign: 'center', padding: '1rem', borderTop: '1px solid rgba(88,66,53,0.15)' }}>
             <button className="btn-secondary btn-sm btn-with-icon" onClick={() => navigate('/worker/claims')}>
-              <Icon name="arrow_down" size={13} /> View Full Claims History with Filters
+              <Icon name="arrow_down" size={13} /> View Full Claims History
             </button>
           </div>
         )}
@@ -523,7 +556,6 @@ function ClaimsView() {
     </div>
   )
 }
-
 
 /* ── NEW PAYMENTS / EARNINGS VIEW matching Stitch ── */
 function EarningsView() {
@@ -1308,9 +1340,230 @@ function SettingsView() {
   )
 }
 
-/* ── NAV CONFIG ── */
+/* ——————————————————— AI SHIELD VIEW ——————————————————— */
+function AIShieldView() {
+  const [loading, setLoading] = useState(true)
+  const [riskData, setRiskData] = useState(null)
+  const [myClaims, setMyClaims] = useState([])
+  const [simLoading, setSimLoading] = useState(false)
+  const [simResult, setSimResult] = useState(null)
+  const [simError, setSimError] = useState('')
+  const [workerId, setWorkerId] = useState(null)
+  const [policyId, setPolicyId] = useState(null)
+  const [city, setCity] = useState('')
+
+  useEffect(() => {
+    async function loadAIShield() {
+      try {
+        const pRes = await api.get('/auth/profile').catch(() => ({ data: null }))
+        if (!pRes?.data?.id) return
+        const authUid = pRes.data.id
+
+        const [wRes, claimsRes] = await Promise.all([
+          api.get('/api/v1/workers').catch(() => ({ data: [] })),
+          api.get('/api/v1/claims').catch(() => ({ data: [] }))
+        ])
+        const myWorker = wRes.data.find(w => w.email === pRes.data.email)
+
+        // ✅ Use Worker DB id (not auth user id) — AIOrchestrationService looks up Worker table
+        const workerDbId = myWorker?.id || authUid
+        setWorkerId(workerDbId)
+
+        const cityTarget = myWorker?.workingCity || 'Mumbai'
+        setCity(cityTarget)
+
+        // auto-get first active policy
+        const policyRes = await api.get(`/api/v1/policies?workerId=${authUid}`).catch(() => ({ data: [] }))
+        const activePol = Array.isArray(policyRes.data) ? policyRes.data.find(p => p.status === 'ACTIVE') : null
+        if (activePol) setPolicyId(activePol.id)
+
+        // get risk score using worker db id
+        const riskRes = await api.get(`/api/ai/risk-score?city=${encodeURIComponent(cityTarget)}&workerId=${workerDbId}&zone=URBAN`).catch(() => ({ data: null }))
+        setRiskData(riskRes.data)
+
+        // get personal AI claims — filter by worker db id
+        const aiClaimsAll = await api.get('/api/ai/audit/claims').catch(() => ({ data: [] }))
+        const mineArr = Array.isArray(aiClaimsAll.data)
+          ? aiClaimsAll.data.filter(c => String(c.workerId) === String(workerDbId))
+          : []
+        // also attach any standard claims without AI fields
+        const stdClaims = Array.isArray(claimsRes.data)
+          ? claimsRes.data.filter(c => c.workerId === authUid && c.decision)
+          : []
+        setMyClaims(mineArr.length > 0 ? mineArr : stdClaims.slice(0, 5))
+      } catch (err) {
+        console.error('AI Shield load error', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadAIShield()
+  }, [])
+
+  const handleSimulate = async () => {
+    if (!workerId || !policyId) {
+      setSimError('No active policy found. Please buy a policy first, or ensure your policy status is ACTIVE.')
+      return
+    }
+    setSimError('')
+    setSimLoading(true)
+    setSimResult(null)
+    try {
+      const res = await api.get(`/api/ai/demo/simulate-rain?workerId=${workerId}&policyId=${policyId}&city=${encodeURIComponent(city || 'Mumbai')}`)
+      setSimResult(res.data)
+    } catch (err) {
+      setSimError(err.response?.data?.message || 'Simulation failed. Ensure your Worker ID and Policy ID are valid and the policy is ACTIVE.')
+    } finally {
+      setSimLoading(false)
+    }
+  }
+
+  const breakdown = riskData?.breakdown
+  const totalScore = breakdown?.totalScore ?? 0
+  const riskLevel = breakdown?.riskLevel ?? 'UNKNOWN'
+  const riskColor = riskLevel === 'HIGH' ? 'var(--error)' : riskLevel === 'MODERATE' ? 'var(--primary)' : 'var(--tertiary)'
+  const decisionBadge = (d) => d === 'AUTO_APPROVED' ? 'badge-active' : d === 'AUTO_REJECTED' ? 'badge-error' : 'badge-warning'
+
+  return (
+    <div className="section-content">
+      { /* Hero Risk Score Card */ }
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '1.5rem', marginBottom: '1.5rem', alignItems: 'stretch' }}>
+        {/* Big score ring */}
+        <div className="card apple-glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: '200px', border: `1px solid ${riskColor}33` }}>
+          <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--on-surface-variant)', marginBottom: '1rem' }}>Your Risk Score</p>
+          <div style={{ position: 'relative', width: '120px', height: '120px' }}>
+            <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+              <circle cx="60" cy="60" r="50" fill="none" stroke={riskColor} strokeWidth="10"
+                strokeDasharray={`${loading ? 0 : (totalScore / 100) * 314} 314`}
+                strokeLinecap="round" style={{ transition: 'stroke-dasharray 1.2s ease' }} />
+            </svg>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '1.75rem', fontWeight: 800, fontFamily: 'var(--font-display)', color: riskColor }}>{loading ? '...' : Math.round(totalScore)}</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--on-surface-variant)', fontWeight: 600 }}>/100</span>
+            </div>
+          </div>
+          <span className="badge" style={{ marginTop: '1rem', background: `${riskColor}22`, color: riskColor }}>{loading ? 'Loading...' : riskLevel}</span>
+          <p style={{ fontSize: '0.72rem', color: 'var(--on-surface-variant)', marginTop: '0.75rem', textAlign: 'center' }}>{riskData?.city || city}</p>
+        </div>
+
+        {/* Breakdown grid */}
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <h3>Real-Time Risk Breakdown</h3>
+            <span className="badge badge-active">Live Engine</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.875rem' }}>
+            {loading ? Array(5).fill(0).map((_,i) => (
+              <div key={i} style={{ padding: '0.875rem', background: 'var(--surface-container)', borderRadius: '10px', opacity: 0.4, height: '80px' }} />
+            )) : [
+              { label: 'Weather', value: breakdown?.weatherScore ?? 0, icon: 'cloud' },
+              { label: 'AQI',     value: breakdown?.aqiScore ?? 0,     icon: 'cloud' },
+              { label: 'Zone',    value: breakdown?.zoneScore ?? 0,    icon: 'location_on' },
+              { label: 'History', value: breakdown?.historyScore ?? 0, icon: 'history' },
+              { label: 'Social',  value: breakdown?.socialScore ?? 0,  icon: 'people' },
+            ].map(f => {
+              const pct = Math.min(100, f.value)
+              const col = pct > 70 ? 'var(--error)' : pct > 40 ? 'var(--primary)' : 'var(--tertiary)'
+              return (
+                <div key={f.label} style={{ padding: '0.875rem', background: 'var(--surface-container)', borderRadius: '10px', border: `1px solid ${col}22` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--on-surface-variant)' }}>{f.label}</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: col }}>{pct.toFixed(0)}</span>
+                  </div>
+                  <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: col, borderRadius: '2px', transition: 'width 1s ease' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', marginTop: '1rem' }}>
+            Recommendation: <strong style={{ color: riskData?.recommendation === 'TRIGGER_ELIGIBLE' ? 'var(--tertiary)' : 'var(--on-surface)' }}>{riskData?.recommendation ?? 'Fetching...'}</strong>
+          </p>
+        </div>
+      </div>
+
+      {/* Payout Simulator */}
+      <div className="card" style={{ padding: '1.75rem', marginBottom: '1.5rem', border: '1px solid rgba(255,122,0,0.2)', background: 'rgba(255,122,0,0.02)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+          <div>
+            <h3>🌧 Instant Payout Simulator</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginTop: '0.25rem' }}>Simulate how GigShield AI would process a heavy rain claim for you — see your risk score, fraud check, and exact payout in real time.</p>
+          </div>
+          {policyId && <span className="badge badge-active" style={{ flexShrink: 0 }}>Policy #{policyId} Active</span>}
+        </div>
+        <button
+          className="btn-primary btn-with-icon"
+          onClick={handleSimulate}
+          disabled={simLoading || !policyId}
+          style={{ justifyContent: 'center', padding: '0.875rem 2rem', fontSize: '0.95rem', background: 'linear-gradient(135deg, var(--primary), #ffa34d)', boxShadow: '0 4px 20px rgba(255,122,0,0.3)', opacity: (!policyId || simLoading) ? 0.65 : 1 }}
+        >
+          <Icon name="zap" size={18} />
+          {simLoading ? 'AI Processing Your Claim...' : !policyId ? 'No Active Policy Found' : `⚡ Simulate Rain Claim for ${city || 'your city'}`}
+        </button>
+        {simError && <p style={{ color: 'var(--error)', marginTop: '0.75rem', fontSize: '0.85rem' }}>⚠ {simError}</p>}
+        {simResult && (
+          <div style={{ marginTop: '1.25rem', padding: '1.5rem', background: 'var(--surface-container)', borderRadius: '14px', border: '1px solid rgba(74,225,131,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(74,225,131,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="check" size={18} color="var(--tertiary)" />
+              </div>
+              <div>
+                <p style={{ fontWeight: 700, color: 'var(--tertiary)', margin: 0, fontSize: '0.9rem' }}>AI Pipeline Complete — Claim C-{simResult.claimResult?.claimId}</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--on-surface-variant)', margin: 0 }}>{simResult.triggerEvent}</p>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem' }}>
+              {[
+                { label: 'Risk Score',   value: simResult.claimResult?.riskScore ?? '—', col: 'var(--primary)' },
+                { label: 'Fraud Score',  value: simResult.claimResult?.fraudScore ?? '—', col: 'var(--on-surface)' },
+                { label: 'AI Decision', value: simResult.claimResult?.decision?.replace(/_/g,' ') ?? '—', col: simResult.claimResult?.decision === 'AUTO_APPROVED' ? 'var(--tertiary)' : 'var(--error)' },
+                { label: 'Your Payout', value: simResult.claimResult?.approvedAmount ?? '₹0.00', col: 'var(--tertiary)' },
+              ].map(r => (
+                <div key={r.label} style={{ padding: '1rem', background: 'var(--surface-container-high)', borderRadius: '10px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.65rem', color: 'var(--on-surface-variant)', margin: '0 0 0.375rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{r.label}</p>
+                  <p style={{ fontWeight: 800, fontSize: '1rem', color: r.col, margin: 0 }}>{String(r.value)}</p>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize:'0.72rem', color:'var(--on-surface-variant)', marginTop:'1rem', fontStyle:'italic', lineHeight: 1.5 }}>{simResult.interviewLine}</p>
+          </div>
+        )}
+      </div>
+
+      {/* My AI-Processed Claims */}
+      <div className="card table-card">
+        <h3 style={{ padding: '1.25rem 1.5rem', margin: 0, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>My AI-Processed Claims</h3>
+        {loading ? <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--on-surface-variant)' }}>Loading your AI claims...</div> : (
+        <table className="worker-table">
+          <thead><tr><th>Claim ID</th><th>Type</th><th>Risk</th><th>Fraud</th><th>Decision</th><th>Payout</th><th>Status</th></tr></thead>
+          <tbody>
+            {myClaims.length === 0 ? (
+              <tr><td colSpan="7" style={{ textAlign:'center', padding:'2rem', color:'var(--on-surface-variant)' }}>No AI-processed claims yet. Use the simulator above to see the full pipeline in action.</td></tr>
+            ) : myClaims.map(c => (
+              <tr key={c.claimId || c.id}>
+                <td className="claim-id-cell">C-{c.claimId || c.id}</td>
+                <td><span className="badge badge-info">{c.disruptionType || 'RAIN'}</span></td>
+                <td style={{ fontWeight: 700, color: (c.riskScore||0) > 70 ? 'var(--error)' : (c.riskScore||0) > 40 ? 'var(--primary)' : 'var(--tertiary)' }}>{c.riskScore != null ? Number(c.riskScore).toFixed(1) : '—'}</td>
+                <td style={{ fontWeight: 700, color: (c.fraudScore||0) > 60 ? 'var(--error)' : (c.fraudScore||0) > 30 ? 'var(--primary)' : 'var(--tertiary)' }}>{c.fraudScore != null ? Number(c.fraudScore).toFixed(1) : '—'}</td>
+                <td>{c.decision ? <span className={`badge ${decisionBadge(c.decision)}`}>{c.decision.replace(/_/g,' ')}</span> : '—'}</td>
+                <td style={{ fontWeight: 700, color: 'var(--tertiary)' }}>{c.approvedAmount || '₹0.00'}</td>
+                <td><span className={`badge ${c.status==='APPROVED'?'badge-active':c.status==='FLAGGED_FOR_REVIEW'?'badge-error':'badge-warning'}`}>{c.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ——————————————————— NAV CONFIG ——————————————————— */
 const NAV_ITEMS = [
   { id: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
+  { id: 'ai',        icon: 'zap',       label: 'AI Shield', badge: 'NEW' },
   { id: 'history',   icon: 'history',   label: 'Risk History', badge: 'LIVE' },
   { id: 'policies',  icon: 'shield',    label: 'Policies'  },
   { id: 'claims',    icon: 'file',      label: 'Claims'    },
@@ -1318,12 +1571,13 @@ const NAV_ITEMS = [
   { id: 'profile',   icon: 'person',    label: 'Profile'   },
   { id: 'settings',  icon: 'cog',       label: 'Settings'  },
 ]
-const SECTION_MAP = { dashboard: DashboardView, history: RiskHistoryView, policies: PoliciesView, claims: ClaimsView, earnings: EarningsView, profile: ProfileView, settings: SettingsView }
+const SECTION_MAP = { dashboard: DashboardView, ai: AIShieldView, history: RiskHistoryView, policies: PoliciesView, claims: ClaimsView, earnings: EarningsView, profile: ProfileView, settings: SettingsView }
 const TITLES = {
   dashboard: { title: 'AI Risk Analysis',   subtitle: 'Your personalized income protection overview' },
+  ai:        { title: 'AI Shield Center',   subtitle: 'Your personal AI pipeline — risk score, payout simulator, and AI-processed claims' },
   history:   { title: 'Risk History',       subtitle: 'Historical breakdown of algorithmic risk assessments' },
   policies:  { title: 'My Policies',        subtitle: 'Manage and view your parametric coverage' },
-  claims:    { title: 'Claims',             subtitle: 'History and status of all your claims' },
+  claims:    { title: 'Claims',             subtitle: 'History and status of all your claims — including AI decisions' },
   earnings:  { title: 'Payments & Earnings',subtitle: 'Track earnings, payouts, and withdrawal history' },
   profile:   { title: 'Profile',            subtitle: 'Your account and platform connections' },
   settings:  { title: 'Account Configuration', subtitle: 'Security, automations, and AI trigger protocols' },
