@@ -1,17 +1,43 @@
+/* Apple-grade glassmorphism for Claim Submission */
+
 .claim-page {
   min-height: 100vh;
-  background: var(--surface);
   position: relative;
+  overflow: hidden;
+  /* Vivid gradient mesh background */
+  background: 
+    radial-gradient(ellipse at 10% 20%, rgba(255, 122, 0, 0.15) 0%, transparent 40%),
+    radial-gradient(ellipse at 80% 80%, rgba(74, 225, 131, 0.15) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(138, 43, 226, 0.1) 0%, transparent 50%),
+    var(--surface-container-lowest);
+  font-family: Arial, sans-serif; /* Per requirements */
+}
+
+/* Base Apple Glass styling */
+.apple-glass, .card, .claim-type-card {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(28, 28, 30, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .claim-bg-glow {
   position: absolute;
   top: -200px;
   right: -200px;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(ellipse, rgba(74, 225, 131, 0.07) 0%, transparent 70%);
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(ellipse, rgba(74, 225, 131, 0.12) 0%, transparent 65%);
   pointer-events: none;
+  z-index: 0;
+  filter: blur(40px);
 }
 
 .claim-content {
@@ -19,103 +45,259 @@
   margin: 0 auto;
   padding: 3rem 2rem;
   position: relative;
+  z-index: 2;
+}
+
+/* Navigation */
+.buy-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  position: sticky;
+  top: 1rem;
+  z-index: 50;
+  margin: 0 1rem;
+  border-radius: 50px; /* Pills have 50px */
+}
+
+.buy-nav .logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Header */
+.buy-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.section-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--on-surface-variant);
+  margin-bottom: 0.5rem;
+}
+
+.buy-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.buy-subtitle {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 1rem;
+}
+
+/* Steps */
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.step-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  background: rgba(28, 28, 30, 0.4);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.step-pill.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.step-pill.done {
+  color: var(--primary);
+}
+
+.step-pill-num {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
 }
 
 /* Claim Type Selection */
 .claim-type-step { display: flex; flex-direction: column; }
+
 .step-title-h2 {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.5rem;
+  font-weight: 600;
   text-align: center;
   margin-bottom: 2rem;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .claim-types-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1.25rem;
-  margin-bottom: 1rem;
+  margin-bottom: 2rem;
 }
 
 .claim-type-card {
   cursor: pointer;
-  border: 2px solid transparent;
+  padding: 2rem;
   text-align: center;
-  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
-.claim-type-card:hover { transform: translateY(-3px); border-color: rgba(255, 182, 139, 0.2); }
-.claim-type-card.selected { border-color: var(--primary-container); box-shadow: 0 0 24px rgba(255, 122, 0, 0.2); }
+.claim-type-card:hover {
+  background: rgba(28, 28, 30, 0.83);
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
 
-.claim-type-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
-.claim-type-card h3 { font-family: var(--font-display); font-size: 1rem; font-weight: 700; }
-.claim-type-card p { font-size: 0.8125rem; color: var(--on-surface-variant); }
+.claim-type-card:active {
+  transform: scale(0.98);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.claim-type-card.selected {
+  border-color: var(--primary);
+  background: rgba(255, 122, 0, 0.15);
+  box-shadow: 0 0 24px rgba(255, 122, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.claim-type-icon { margin-bottom: 0.5rem; }
+.claim-type-card h3 { font-size: 1.125rem; font-weight: 600; color: rgba(255, 255, 255, 0.85); }
+.claim-type-card p { font-size: 0.875rem; color: rgba(255, 255, 255, 0.45); }
 
 /* Details step */
 .claim-details-step {
   max-width: 640px;
   margin: 0 auto;
+  padding: 2.5rem;
 }
 
-.claim-details-step h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; margin-bottom: 0.375rem; }
-.claim-details-step > p { color: var(--on-surface-variant); margin-bottom: 2rem; }
+.claim-details-step h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+.claim-details-step > p { color: rgba(255, 255, 255, 0.45); margin-bottom: 2rem; }
 
-.claim-form { display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 1.5rem; }
+.claim-form { display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem; }
 
-.claim-textarea { resize: vertical; min-height: 100px; }
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.form-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px; /* inner elements 12px */
+  padding: 0.875rem 1rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  color-scheme: dark;
+}
+
+.form-input:focus {
+  border-color: var(--primary);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 3px rgba(255, 122, 0, 0.2);
+}
+
+.claim-textarea { resize: vertical; min-height: 120px; }
 
 .ai-note {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
-  background: rgba(173, 199, 255, 0.07);
+  background: rgba(173, 199, 255, 0.1);
   border: 1px solid rgba(173, 199, 255, 0.2);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-  font-size: 0.8125rem;
-  color: var(--secondary);
-  margin-bottom: 1rem;
+  border-radius: 16px;
+  padding: 1.25rem;
+  font-size: 0.875rem;
+  color: rgba(173, 199, 255, 0.9);
+  margin-bottom: 1.5rem;
 }
 
-.ai-note p { margin: 0; }
+.ai-note p { margin: 0; line-height: 1.5; }
 
 /* Review step */
 .claim-review-step {
   max-width: 580px;
   margin: 0 auto;
+  padding: 2.5rem;
 }
 
-.claim-review-step h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }
+.claim-review-step h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 2rem; }
 
-.review-items { display: flex; flex-direction: column; gap: 0; margin-bottom: 1.5rem; }
+.review-items { display: flex; flex-direction: column; margin-bottom: 2rem; border-radius: 12px; background: rgba(0,0,0,0.2); padding: 1rem; }
 .review-item {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   padding: 1rem 0;
-  border-bottom: 1px solid rgba(88, 66, 53, 0.2);
-  font-size: 0.875rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9375rem;
 }
 
 .review-item:last-child { border-bottom: none; }
-.review-item span { color: var(--on-surface-variant); flex-shrink: 0; margin-right: 1rem; }
-.review-item strong { text-align: right; word-break: break-word; }
+.review-item span { color: rgba(255, 255, 255, 0.45); }
+.review-item strong { color: rgba(255, 255, 255, 0.85); font-weight: 500; text-align: right; }
 
-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.step-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-button:disabled:hover {
+.btn-primary, .btn-secondary {
+  border-radius: 50px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.btn-primary:active, .btn-secondary:active, button:active {
+  transform: scale(0.96);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button:disabled:active {
   transform: none;
-  box-shadow: none;
 }
 
 @media (max-width: 600px) {
   .claim-types-grid { grid-template-columns: 1fr; }
+  .claim-content { padding: 2rem 1rem; }
 }

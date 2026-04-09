@@ -8,7 +8,8 @@ import lombok.Setter;
 @Setter
 public class WorkerRequestDTO {
 
-    @Email @NotBlank(message = "Email is required to link your account")
+    @Email
+    @NotBlank(message = "Email is required to link your account")
     private String email;
 
     @NotBlank(message = "Area is required")
@@ -22,7 +23,7 @@ public class WorkerRequestDTO {
     private String address;
 
     @NotBlank(message = "Delivery segment is required")
-    private String deliverySegment;   // FOOD, ECOMMERCE, GROCERY
+    private String deliverySegment; // FOOD, ECOMMERCE, GROCERY
 
     @NotNull(message = "Average income is required")
     private Double avgIncome;

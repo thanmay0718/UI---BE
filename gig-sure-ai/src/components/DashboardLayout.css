@@ -255,7 +255,7 @@
 /* Scrollable content below navbar */
 .dash-content {
   flex: 1;
-  padding: 2rem 2.5rem 2.5rem;
+  padding: 0.5rem 2.5rem 2.5rem;
   overflow-x: hidden;
 }
 

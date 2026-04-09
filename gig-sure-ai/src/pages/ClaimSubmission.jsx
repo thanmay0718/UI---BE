@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import './ClaimSubmission.css'
 import api from '../services/api'
+import { Icon } from '../components/Icons'
 
 const CLAIM_TYPES = [
-  { id: 'rainfall', icon: '\u{1F327}\uFE0F', label: 'Heavy Rainfall', desc: 'Precipitation triggered income loss' },
-  { id: 'aqi',      icon: '\u{1F32B}\uFE0F', label: 'AQI Spike',      desc: 'Air quality above threshold' },
-  { id: 'outage',   icon: '\u{1F4C9}',       label: 'Platform Outage', desc: 'Service interruption loss' },
-  { id: 'traffic',  icon: '\u{1F6A6}',       label: 'Traffic Disruption', desc: 'Severe congestion impact' },
+  { id: 'rainfall', icon: 'water_drop', label: 'Heavy Rainfall', desc: 'Precipitation triggered income loss' },
+  { id: 'aqi',      icon: 'air',      label: 'AQI Spike',      desc: 'Air quality above threshold' },
+  { id: 'outage',   icon: 'router',       label: 'Platform Outage', desc: 'Service interruption loss' },
+  { id: 'traffic',  icon: 'traffic',       label: 'Traffic Disruption', desc: 'Severe congestion impact' },
 ]
 
 export default function ClaimSubmission() {
@@ -75,14 +76,17 @@ export default function ClaimSubmission() {
     return (
       <div className="claim-page">
         <div className="claim-bg-glow" />
-        <nav className="buy-nav glass">
-          <Link to="/" className="logo">🛡️ GigShield <span className="logo-ai">AI</span></Link>
+        <nav className="buy-nav apple-glass">
+          <Link to="/" className="logo">
+            <Icon name="shield" size={20} color="var(--tertiary)" strokeWidth={2.5} />
+            GigShield <span className="logo-ai">AI</span>
+          </Link>
           <Link to="/worker?tab=claims" className="btn-secondary">Back to Claims</Link>
         </nav>
         <div className="claim-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
           <div style={{ textAlign: 'center', maxWidth: '480px', width: '100%' }}>
             <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(74,225,131,0.15)', border: '2px solid var(--tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--tertiary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <Icon name="check_circle" size={40} color="var(--tertiary)" />
             </div>
             <p style={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--tertiary)', marginBottom: '0.5rem' }}>Claim Submitted Successfully</p>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', marginBottom: '0.75rem', color: 'var(--on-surface)' }}>Claim <span style={{ color: 'var(--tertiary)' }}>Received</span></h1>
@@ -131,8 +135,11 @@ export default function ClaimSubmission() {
     <div className="claim-page">
       <div className="claim-bg-glow" />
 
-      <nav className="buy-nav glass">
-          <Link to="/" className="logo">🛡️ GigShield <span className="logo-ai">AI</span></Link>
+      <nav className="buy-nav apple-glass">
+          <Link to="/" className="logo">
+            <Icon name="shield" size={20} color="var(--tertiary)" strokeWidth={2.5} />
+            GigShield <span className="logo-ai">AI</span>
+          </Link>
         <Link to="/worker" className="btn-secondary">Back Dashboard</Link>
       </nav>
 
@@ -154,7 +161,7 @@ export default function ClaimSubmission() {
 
         {submitError && (
           <div style={{ padding: '0.875rem 1rem', background: 'rgba(255,100,80,0.1)', border: '1px solid rgba(255,100,80,0.35)', borderRadius: '10px', color: '#ff6450', fontSize: '0.875rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <span>\u26A0</span> {submitError}
+            <span><Icon name="warning" size={18} /></span> {submitError}
           </div>
         )}
 
@@ -168,7 +175,7 @@ export default function ClaimSubmission() {
                   className={`claim-type-card card ${type === ct.id ? 'selected' : ''}`}
                   onClick={() => setType(ct.id)}
                 >
-                  <span className="claim-type-icon">{ct.icon}</span>
+                  <span className="claim-type-icon"><Icon name={ct.icon} size={32} color="var(--on-surface)" /></span>
                   <h3>{ct.label}</h3>
                   <p>{ct.desc}</p>
                 </div>
@@ -220,7 +227,7 @@ export default function ClaimSubmission() {
               <div className="review-item"><span>Description</span><strong>{desc}</strong></div>
             </div>
             <div className="ai-note">
-              <span>\u26A1</span>
+              <span><Icon name="bolt" size={18} /></span>
               <p>Upon submission, our AI instantly verifies eligibility. Average payout time: under 2 minutes.</p>
             </div>
             <div className="step-actions">

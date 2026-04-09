@@ -24,12 +24,12 @@ public class UserDetailsImpl implements UserDetails {
         this.role = role;
     }
 
-    // ✅ Build method
+    // ✅ Build method — OAuth users have null password; use empty string so Spring Security doesn't NPE
     public static UserDetailsImpl build(User user) {
         return new UserDetailsImpl(
                 user.getId(),
                 user.getEmail(),
-                user.getPassword(),
+                user.getPassword() != null ? user.getPassword() : "",   // safe for OAuth users
                 user.getRole().name()
         );
     }

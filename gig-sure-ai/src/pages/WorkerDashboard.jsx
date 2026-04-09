@@ -151,9 +151,20 @@ function PoliciesView() {
 
   return (
     <div className="section-content">
-      <div className="section-top-row">
-        <div><h2 className="section-h2">My Policies</h2><p className="section-sub">Manage and view all your active parametric coverage plans.</p></div>
-        <Link to="/buy-policy" className="btn-primary btn-with-icon"><Icon name="plus" size={16} /> Add Policy</Link>
+      <div className="policy-add-card apple-glass" style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem 2rem', marginBottom: '2.5rem', border: '1px dashed rgba(255, 182, 139, 0.4)', borderRadius: '20px', background: 'rgba(255, 122, 0, 0.05)', cursor: 'pointer', transition: 'all 0.2s', textDecoration: 'none'
+      }} onClick={() => document.querySelector('#invisible-buy-link').click()}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ padding: '0.75rem', background: 'rgba(255, 182, 139, 0.15)', borderRadius: '50%', color: 'var(--primary)' }}>
+               <Icon name="plus" size={20} />
+            </div>
+            <div>
+               <h3 style={{ fontSize: '1.1rem', color: 'rgba(229, 226, 225, 0.95)', margin: '0 0 0.25rem' }}>Add New Coverage Plan</h3>
+               <p style={{ fontSize: '0.85rem', color: 'rgba(224, 192, 175, 0.6)', margin: 0 }}>Discover an intelligent, parametric policy to protect your income.</p>
+            </div>
+         </div>
+         <span className="btn-primary" style={{ padding: '0.675rem 1.5rem', borderRadius: '50px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>Browse Plans</span>
+         <Link to="/buy-policy" id="invisible-buy-link" style={{ display: 'none' }}></Link>
       </div>
       <div className="policies-list">
         {loading ? <p style={{color: 'var(--on-surface-variant)'}}>Loading active policies...</p> : policies.map(p => (

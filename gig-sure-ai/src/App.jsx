@@ -11,6 +11,7 @@ import BuyPolicy from './pages/BuyPolicy'
 import ClaimSubmission from './pages/ClaimSubmission'
 import WorkerRegistration from './pages/WorkerRegistration'
 import WorkerClaimsHistory from './pages/WorkerClaimsHistory'
+import VerifyOtpPage from './pages/VerifyOtpPage'
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/admin/policy/new" element={<CreatePolicyPage />} />
         <Route path="/buy-policy"     element={<BuyPolicy />} />
         <Route path="/claim"          element={<ClaimSubmission />} />
+        <Route path="/verify-otp"    element={<VerifyOtpPage />} />
         <Route path="*"               element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

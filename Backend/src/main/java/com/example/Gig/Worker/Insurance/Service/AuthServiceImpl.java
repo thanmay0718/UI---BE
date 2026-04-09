@@ -76,6 +76,11 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.getEmail().toLowerCase())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        // 🔒 Guard: OAuth users have no password — cannot log in via email/password
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new RuntimeException("This account was created via Google. Please use 'Continue with Google' to sign in.");
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Invalid credentials");
         }

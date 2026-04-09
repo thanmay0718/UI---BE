@@ -1,4 +1,4 @@
-﻿import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Icon } from '../components/Icons'
 import './LandingPage.css'
 
@@ -26,7 +26,7 @@ export default function LandingPage() {
   return (
     <div className="landing">
       {/* Navigation */}
-      <nav className="nav glass">
+      <nav className="nav apple-glass">
         <div className="nav-inner">
           <Link to="/" className="logo">
             <div className="logo-shield">
@@ -75,7 +75,7 @@ export default function LandingPage() {
           {/* Trigger cards */}
           <div className="trigger-cards">
             {TRIGGER_EVENTS.map(t => (
-              <div key={t.name} className="trigger-card glass">
+              <div key={t.name} className="trigger-card apple-glass">
                 <span className="trigger-label badge badge-info">{t.label}</span>
                 <div className="trigger-row">
                   <span className="trigger-icon-wrap" style={{ color: t.color }}>
@@ -111,7 +111,7 @@ export default function LandingPage() {
         </div>
         <div className="steps-grid">
           {STEPS.map((s, i) => (
-            <div key={s.title} className="step-card card">
+            <div key={s.title} className="step-card apple-glass">
               <div className="step-number">{String(i + 1).padStart(2, '0')}</div>
               <div className="step-icon-wrap">
                 <Icon name={s.icon} size={26} color="var(--primary)" strokeWidth={1.75} />
@@ -125,7 +125,7 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="cta-section" id="pricing">
-        <div className="cta-card card">
+        <div className="cta-card apple-glass">
           <div className="cta-glow" />
           <p className="section-eyebrow">JOIN THE MOVEMENT</p>
           <h2 className="cta-title">Join 50,000+ gig workers who have secured their financial future</h2>

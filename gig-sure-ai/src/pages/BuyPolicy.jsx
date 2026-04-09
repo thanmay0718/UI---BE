@@ -55,6 +55,12 @@ export default function BuyPolicy() {
   
   const navigate = useNavigate()
 
+  // Payment method state
+  const [paymentMethodType, setPaymentMethodType] = useState('card') // 'card', 'upi', 'wallet', 'qr'
+  const [upiId, setUpiId] = useState('')
+  const [selectedWallet, setSelectedWallet] = useState('')
+  const [showQr, setShowQr] = useState(false)
+
   const handleConnect = (pl) => {
     if (connectedPlatforms.includes(pl)) return;
     setIsConnecting(pl)
@@ -129,9 +135,9 @@ export default function BuyPolicy() {
            policyId: policyId,
            amount: premiumAmt,
            paymentType: 'PREMIUM',
-           paymentMethod: 'CARD',
+           paymentMethod: paymentMethodType.toUpperCase(),
            currency: 'INR',
-           notes: 'Initial premium payment via Secure Checkout'
+           notes: `Payment via ${paymentMethodType.toUpperCase()}`
          })
       } else {
          console.log("No authenticated worker found in context, proceeding virtually...")
@@ -153,7 +159,7 @@ export default function BuyPolicy() {
       <div className="buy-bg-glow" />
 
       {/* Nav */}
-      <nav className="buy-nav glass">
+      <nav className="buy-nav apple-glass">
         <Link to="/" className="logo">️ GigShield <span className="logo-ai">AI</span></Link>
         <Link to="/login" className="btn-secondary">Sign In</Link>
       </nav>
@@ -182,7 +188,7 @@ export default function BuyPolicy() {
               {loading ? <p style={{color: 'white'}}>Loading live plans from GigShield AI Engine...</p> : plans.map(p => (
                 <div
                   key={p.id}
-                  className={`plan-card card ${selected === p.id ? 'plan-selected' : ''} ${p.highlight ? 'plan-highlight' : ''}`}
+                  className={`plan-card apple-glass ${selected === p.id ? 'plan-selected' : ''} ${p.highlight ? 'plan-highlight' : ''}`}
                   onClick={() => setSelected(p.id)}
                 >
                   {p.highlight && <div className="plan-badge badge badge-active">Most Popular</div>}
@@ -213,7 +219,7 @@ export default function BuyPolicy() {
         )}
 
         {step === 2 && (
-          <div className="connect-step card">
+          <div className="connect-step apple-glass">
             <h2>Connect Your Platforms</h2>
             <p>Link your gig accounts to establish your earnings baseline.</p>
             <div className="platforms-grid">
@@ -243,51 +249,143 @@ export default function BuyPolicy() {
         )}
 
         {step === 3 && (
-          <div className="payment-step card">
+          <div className="payment-step apple-glass">
             <h2>Secure Checkout <span className="badge badge-active" style={{marginLeft: '1rem'}}>SSL Encrypted</span></h2>
             <p style={{marginBottom: '2rem'}}>Complete your payment to activate <strong>{plans.find(p => p.id === selected)?.name}</strong>.</p>
             
             <div className="checkout-container" style={{display: 'flex', gap: '2rem', flexWrap: 'wrap'}}>
                <div className="payment-form" style={{flex: '1 1 400px'}}>
-                  <div className="form-group">
-                     <label>Cardholder Name</label>
-                     <input type="text" className="form-input" placeholder="e.g. Alex Mercer" value={cardName} onChange={e => setCardName(e.target.value)} />
+                  <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '2rem', background: 'rgba(0,0,0,0.3)', padding: '0.4rem', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '50px' }}>
+                    {[{id: 'card', name: 'Credit Card'}, {id: 'upi', name: 'UPI ID'}, {id: 'wallet', name: 'Wallets'}, {id: 'qr', name: 'QR Scan'}].map(pm => (
+                      <button 
+                        key={pm.id}
+                        style={{ 
+                          flex: 1, 
+                          padding: '0.65rem', 
+                          border: 'none', 
+                          borderRadius: '50px',
+                          background: paymentMethodType === pm.id ? 'var(--primary)' : 'transparent', 
+                          color: paymentMethodType === pm.id ? '#1c1c1e' : 'rgba(255,255,255,0.6)', 
+                          fontWeight: paymentMethodType === pm.id ? 700 : 500,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                          boxShadow: paymentMethodType === pm.id ? '0 4px 12px rgba(255, 122, 0, 0.4)' : 'none'
+                        }}
+                        onClick={() => setPaymentMethodType(pm.id)}
+                      >
+                        {pm.name}
+                      </button>
+                    ))}
                   </div>
-                  <div className="form-group">
-                     <label>Card Number</label>
-                     <input type="text" className="form-input" placeholder="•••• •••• •••• ••••" maxLength="19" value={cardNumber} onChange={e => setCardNumber(e.target.value)} />
-                  </div>
-                  <div style={{display: 'flex', gap: '1rem'}}>
-                     <div className="form-group" style={{flex: 1}}>
-                        <label>Expiry Date</label>
-                        <input type="text" className="form-input" placeholder="MM/YY" maxLength="5" value={cardExp} onChange={e => setCardExp(e.target.value)} />
-                     </div>
-                     <div className="form-group" style={{flex: 1}}>
-                        <label>CVV</label>
-                        <input type="text" className="form-input" placeholder="123" maxLength="4" value={cardCvv} onChange={e => setCardCvv(e.target.value)} />
-                     </div>
-                  </div>
+
+                  {paymentMethodType === 'card' && (
+                    <div className="fade-in">
+                      <div className="form-group">
+                         <label>Cardholder Name</label>
+                         <input type="text" className="form-input" placeholder="e.g. Alex Mercer" value={cardName} onChange={e => setCardName(e.target.value)} />
+                      </div>
+                      <div className="form-group">
+                         <label>Card Number</label>
+                         <input type="text" className="form-input" placeholder="•••• •••• •••• ••••" maxLength="19" value={cardNumber} onChange={e => setCardNumber(e.target.value)} />
+                      </div>
+                      <div style={{display: 'flex', gap: '1rem'}}>
+                         <div className="form-group" style={{flex: 1}}>
+                            <label>Expiry Date</label>
+                            <input type="text" className="form-input" placeholder="MM/YY" maxLength="5" value={cardExp} onChange={e => setCardExp(e.target.value)} />
+                         </div>
+                         <div className="form-group" style={{flex: 1}}>
+                            <label>CVV</label>
+                            <input type="password" className="form-input" placeholder="123" maxLength="4" value={cardCvv} onChange={e => setCardCvv(e.target.value)} />
+                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethodType === 'upi' && (
+                    <div className="fade-in">
+                      <div className="form-group">
+                         <label>Enter your UPI ID</label>
+                         <input type="text" className="form-input" placeholder="e.g. username@okhdfcbank" value={upiId} onChange={e => setUpiId(e.target.value)} />
+                      </div>
+                      <p style={{fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginTop: '0.5rem'}}>A payment request will be sent to your UPI app. Please approve within 5 minutes.</p>
+                    </div>
+                  )}
+
+                  {paymentMethodType === 'wallet' && (
+                    <div className="fade-in">
+                        <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: 'rgba(255, 255, 255, 0.85)', marginBottom: '1rem' }}>Select your Wallet</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                          {['PhonePe', 'Google Pay', 'Paytm', 'Amazon Pay'].map(wallet => (
+                            <div 
+                              key={wallet}
+                              className={`apple-glass ${selectedWallet === wallet ? 'selected-wallet' : ''}`}
+                              style={{ padding: '1rem', textAlign: 'center', cursor: 'pointer', border: selectedWallet === wallet ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)', background: selectedWallet === wallet ? 'rgba(255,122,0,0.1)' : 'rgba(0,0,0,0.2)' }}
+                              onClick={() => setSelectedWallet(wallet)}
+                            >
+                              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: selectedWallet === wallet ? 'var(--primary)' : 'rgba(255,255,255,0.7)' }}>{wallet}</span>
+                            </div>
+                          ))}
+                        </div>
+                    </div>
+                  )}
+
+                  {paymentMethodType === 'qr' && (
+                    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem', padding: '1rem 0' }}>
+                      <p style={{fontSize: '0.9rem', color: 'rgba(255,255,255,0.85)', margin: 0, fontWeight: 500}}>Scan QR using any UPI app</p>
+                      <div style={{ 
+                         width: '200px', height: '200px', 
+                         background: '#ffffff', 
+                         borderRadius: '20px', 
+                         display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                         padding: '12px',
+                         boxShadow: '0 0 0 1px rgba(255,255,255,0.1), 0 12px 30px rgba(0,0,0,0.5), 0 0 40px rgba(255, 122, 0, 0.15)'
+                      }}>
+                         <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=gigshield-premium-payment" alt="QR Code" style={{ width: '100%', height: '100%', borderRadius: '10px' }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+                        <p style={{fontSize: '0.75rem', color: 'rgba(224, 192, 175, 0.6)', margin: 0}}>Valid for 5 minutes. Do not refresh.</p>
+                        <button style={{ 
+                           background: 'rgba(255,255,255,0.06)', 
+                           border: '1px solid rgba(255,255,255,0.1)', 
+                           color: 'rgba(255,255,255,0.7)', 
+                           padding: '0.5rem 1.25rem', 
+                           borderRadius: '50px', 
+                           fontSize: '0.75rem',
+                           cursor: 'pointer',
+                           transition: 'all 0.2s',
+                        }} onClick={(e) => { e.target.style.background = 'rgba(255,255,255,0.1)'; setShowQr(true) }}>
+                           ↻ Regenerate QR
+                        </button>
+                      </div>
+                    </div>
+                  )}
                </div>
                
-               <div className="checkout-summary card glass" style={{flex: '1 1 300px', background: 'var(--surface-container)'}}>
-                  <h3 style={{marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem'}}>Order Summary</h3>
+               <div className="checkout-summary" style={{flex: '1 1 300px', display: 'flex', flexDirection: 'column', padding: '1rem 0'}}>
+                  <h3 style={{marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem', color: 'rgba(255,255,255,0.9)'}}>Order Summary</h3>
                   <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-                    <span>Plan:</span>
-                    <strong>{plans.find(p => p.id === selected)?.name}</strong>
+                    <span style={{color: 'rgba(255,255,255,0.6)'}}>Plan:</span>
+                    <strong style={{color: 'rgba(255,255,255,0.9)'}}>{plans.find(p => p.id === selected)?.name}</strong>
                   </div>
                   <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-                    <span>Billing Cycle:</span>
-                    <span>Weekly</span>
+                    <span style={{color: 'rgba(255,255,255,0.6)'}}>Billing Cycle:</span>
+                    <span style={{color: 'rgba(255,255,255,0.9)'}}>Weekly</span>
                   </div>
-                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)'}}>
-                    <span style={{fontSize: '1.1rem', fontWeight: 600}}>Total Due:</span>
-                    <span className="gradient-text" style={{fontSize: '1.5rem', fontWeight: 700}}>{plans.find(p => p.id === selected)?.price}</span>
+                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)'}}>
+                    <span style={{fontSize: '1.1rem', fontWeight: 600, color: 'rgba(255,255,255,0.9)'}}>Total Due:</span>
+                    <span className="gradient-text" style={{fontSize: '1.75rem', fontWeight: 700}}>{plans.find(p => p.id === selected)?.price}</span>
                   </div>
                   
-                  <button className="btn-primary" style={{width: '100%', padding: '1rem', fontSize: '1rem'}} disabled={!cardNumber || !cardExp || !cardCvv || isProcessing} onClick={processPayment}>
-                    {isProcessing ? 'Processing Payment...' : 'Subscribe & Pay Now'}
+                  <button className="btn-primary" style={{width: '100%', padding: '1.1rem', fontSize: '1rem', borderRadius: '50px', boxShadow: '0 8px 24px rgba(255,122,0,0.3)'}} disabled={
+                    isProcessing ||
+                    (paymentMethodType === 'card' && (!cardNumber || !cardExp || !cardCvv)) ||
+                    (paymentMethodType === 'upi' && !upiId.includes('@')) ||
+                    (paymentMethodType === 'wallet' && !selectedWallet)
+                  } onClick={processPayment}>
+                    {isProcessing ? 'Processing...' : 'Subscribe & Pay Now'}
                   </button>
-                  <p style={{textAlign: 'center', fontSize: '0.8rem', color: 'var(--on-surface-variant)', marginTop: '1rem'}}>Payments processed securely via GigShield Financial Sandbox.</p>
+                  <p style={{textAlign: 'center', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: '1.25rem', letterSpacing: '0.02em'}}>Payments processed securely via GigShield Financial Sandbox.</p>
                </div>
             </div>
             
@@ -298,7 +396,7 @@ export default function BuyPolicy() {
         )}
 
         {step === 4 && (
-          <div className="activate-step card">
+          <div className="activate-step apple-glass">
             <div className="activate-icon"></div>
             <h2>You're Protected!</h2>
             <p>Your <strong>{plans.find(p => p.id === selected)?.name}</strong> plan is now active. The Luminescent Guardian AI is monitoring your risk in real time.</p>

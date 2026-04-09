@@ -25,9 +25,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter,
+                          CustomOAuth2UserService customOAuth2UserService,
+                          OAuth2SuccessHandler oAuth2SuccessHandler) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.customOAuth2UserService = customOAuth2UserService;
+        this.oAuth2SuccessHandler = oAuth2SuccessHandler;
     }
 
     @Bean
@@ -39,21 +45,27 @@ public class SecurityConfig {
                 // ✅ Enable CORS
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // ✅ Stateless session
+                // ✅ Stateless session for REST; OAuth2 needs session temporarily, so we don't force STATELESS globally
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
 
                 // 🔐 Authorization rules
                 .authorizeHttpRequests(auth -> auth
 
-                        // Public APIs
+                        // Public pre-flight & auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/error").permitAll() // ✅ Prevent mask
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/policy-templates").permitAll()
+                        .requestMatchers("/error").permitAll()
 
-                        // ✅ Worker onboarding & fetching
+                        // OAuth2 endpoints — Spring Security auto-handles these
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        // OTP verification endpoints — accessible with scoped JWT (bearer header)
+                        .requestMatchers("/api/v1/auth/otp/**").permitAll()
+
+                        // Public APIs
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/policy-templates").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/workers").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/workers").permitAll()
 
@@ -64,21 +76,32 @@ public class SecurityConfig {
                         // Shared secured APIs
                         .requestMatchers("/policies/**").authenticated()
 
-                        // Everything else
+                        // Everything else requires auth
                         .anyRequest().authenticated()
                 )
 
-                // ❗ Unauthorized handler
+                // ❗ Unauthorized handler for REST routes
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, ex1) -> {
-                            response.setStatus(401);
-                            response.getWriter().write("Unauthorized");
+                            if (!response.isCommitted()) {
+                                response.setStatus(401);
+                                response.setContentType("application/json");
+                                response.getWriter().write("{\"error\":\"Unauthorized\"}");
+                            }
                         })
                 )
 
-                // 🔥 JWT Filter
-                .addFilterBefore(jwtAuthFilter,
-                        UsernamePasswordAuthenticationFilter.class);
+                // 🔥 Google OAuth2 Login
+                .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(ep -> ep.baseUri("/oauth2/authorization"))
+                        .redirectionEndpoint(ep -> ep.baseUri("/login/oauth2/code/*"))
+                        .userInfoEndpoint(ui -> ui.userService(customOAuth2UserService))
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureUrl("http://localhost:5173/signup?error=oauth_failed")
+                )
+
+                // 🔥 JWT Filter (runs for REST endpoints)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -90,22 +113,18 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    // 🌐 CORS CONFIG (FINAL FIX)
+    // 🌐 CORS CONFIG
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration config = new CorsConfiguration();
-
-        config.setAllowedOrigins(List.of("http://localhost:5173")); // ✅ FRONTEND
+        config.setAllowedOrigins(List.of("http://localhost:5173")); // ✅ Frontend
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true); // 🔥 REQUIRED FOR COOKIES
+        config.setAllowCredentials(true); // 🔥 Required for cookies
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return source;
     }
 

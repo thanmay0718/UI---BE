@@ -25,19 +25,46 @@ public class AuthController {
     private final AuthService authService;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final com.example.Gig.Worker.Insurance.Service.EmailService emailService;
 
     public AuthController(AuthService authService,
                           JwtUtil jwtUtil,
-                          AuthenticationManager authenticationManager) {
+                          AuthenticationManager authenticationManager,
+                          com.example.Gig.Worker.Insurance.Service.EmailService emailService) {
         this.authService = authService;
         this.jwtUtil = jwtUtil;
         this.authenticationManager = authenticationManager;
+        this.emailService = emailService;
     }
 
     // ✅ REGISTER
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequestDTO request) {
         return ResponseEntity.ok(authService.register(request));
+    }
+
+    // ✅ SEND OTP (MOCKED / REAL)
+    @PostMapping("/send-otp")
+    public ResponseEntity<?> sendOtp(@RequestBody java.util.Map<String, String> payload) {
+        String contact = payload.get("contact");
+        String method = payload.get("method");
+        String generatedOtp = payload.get("otp");
+
+        System.out.println("\n============ GIGSHIELD SECURITY LOG ============");
+        System.out.println("Dispatching OTP: " + generatedOtp);
+        System.out.println("Method: " + method);
+        System.out.println("Destination: " + contact);
+        System.out.println("================================================\n");
+
+        if ("email".equalsIgnoreCase(method)) {
+            // Once application.properties is configured, this will explicitly shoot the email.
+            boolean sent = emailService.sendOtpEmail(contact, generatedOtp);
+            if (!sent) {
+                System.err.println("WARNING: spring.mail properties not set. Bypassing physical delivery.");
+            }
+        }
+
+        return ResponseEntity.ok("OTP dispatched to " + contact + " via " + method);
     }
 
     // ✅ LOGIN

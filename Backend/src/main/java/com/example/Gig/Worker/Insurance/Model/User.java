@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
         name = "users",
         uniqueConstraints = {
                 @UniqueConstraint(columnNames = "email"),
-                @UniqueConstraint(columnNames = "phone_number"),
                 @UniqueConstraint(columnNames = "username")
+                // phone_number intentionally excluded — OAuth users start with null
         }
 )
 public class User {
@@ -26,12 +26,10 @@ public class User {
     private Long id;
 
     // ✅ FULL NAME
-    @NotBlank(message = "Name is required")
     @Column(nullable = false)
     private String name;
 
     // ✅ USERNAME (for login/display)
-    @NotBlank(message = "Username is required")
     @Column(nullable = false)
     private String username;
 
@@ -41,15 +39,12 @@ public class User {
     @Column(nullable = false)
     private String email;
 
-    // ✅ PASSWORD
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters")
-    @Column(nullable = false)
+    // ✅ PASSWORD (nullable for OAuth users)
+    @Column(nullable = true)
     private String password;
 
-    // ✅ PHONE NUMBER
-    @NotNull(message = "Phone number is required")
-    @Column(name = "phone_number", nullable = false)
+    // ✅ PHONE NUMBER (nullable — collected after OAuth)
+    @Column(name = "phone_number", nullable = true)
     private String phoneNumber;
 
     // ✅ ROLE
@@ -60,6 +55,16 @@ public class User {
     // ✅ LOGIN STATUS
     @Column(name = "is_logged_in", nullable = false)
     private Boolean isLoggedIn;
+
+    // ✅ OAUTH FIELDS
+    @Column(name = "auth_provider")
+    private String provider = "LOCAL"; // "LOCAL" or "GOOGLE"
+
+    @Column(name = "is_verified")
+    private Boolean isVerified = false;
+
+    @Column(name = "profile_picture", columnDefinition = "TEXT")
+    private String profilePicture;
 
     // ✅ CREATED TIME
     @Column(nullable = false, updatable = false)
